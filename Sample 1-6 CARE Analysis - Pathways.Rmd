@@ -1,0 +1,209 @@
+---
+title: "Sample 1-6 CARE Analysis - Pathways"
+author: "Kaylee Delgado"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+
+```{r setup, include = FALSE}
+library(tidyverse)
+library(jsonlite)
+library(conflicted)
+library(readr)
+library(formatR)
+library(stringr)
+library(kableExtra)
+conflicts_prefer(dplyr::select)
+```
+
+```{r}
+
+# Read the TSV file into a data frame
+outlier_data <- read.table("Sample 1-6 nof1 Outlier Results.tsv", sep = "\t", header = TRUE)
+```
+
+# Outlier Results
+TH50_5178_S01
+```{r}
+
+# Get down outliers
+conflicts_prefer(dplyr::filter)
+down_outliers_78 <- outlier_data %>%
+  filter(TH_id == "TH50_5178_S01", direction == "down") %>%
+  select(gene)
+write_tsv(down_outliers_78, file = "TH50_5178_S01 Down Outliers")
+
+# Get up outliers
+up_outliers_78 <- outlier_data %>%
+  filter(TH_id == "TH50_5178_S01", direction == "up") %>%
+  select(gene)
+write_tsv(up_outliers_78, file = "TH50_5178_S01 Up Outliers")
+```
+
+TH50_5179_S01
+```{r}
+
+# Get down outliers
+down_outliers_79 <- outlier_data %>%
+  filter(TH_id == "TH50_5179_S01", direction == "down") %>%
+  select(gene)
+write_tsv(down_outliers_79, file = "TH50_5179_S01 Down Outliers")
+
+# Get up outliers
+up_outliers_79 <- outlier_data %>%
+  filter(TH_id == "TH50_5179_S01", direction == "up") %>%
+  select(gene)
+write_tsv(up_outliers_79, file = "TH50_5179_S01 Up Outliers")
+```
+
+TH50_5280_S01
+```{r}
+
+# Get down outliers
+
+down_outliers_80 <- outlier_data %>%
+  filter(TH_id == "TH50_5280_S01", direction == "down") %>%
+  select(gene)
+write_tsv(down_outliers_80, file = "TH50_5280_S01 Down Outliers")
+
+# Get up outliers
+up_outliers_80 <- outlier_data %>%
+  filter(TH_id == "TH50_5280_S01", direction == "up") %>%
+  select(gene)
+write_tsv(up_outliers_80, file = "TH50_5280_S01 Up Outliers")
+```
+
+TH50_5281_S01
+```{r}
+
+# Get down outliers
+down_outliers_81 <- outlier_data %>%
+  filter(TH_id == "TH50_5281_S01", direction == "down") %>%
+  select(gene)
+write_tsv(down_outliers_81, file = "TH50_5281_S01 Down Outliers")
+
+# Get up outliers
+up_outliers_81 <- outlier_data %>%
+  filter(TH_id == "TH50_5281_S01", direction == "up") %>%
+  select(gene)
+write_tsv(up_outliers_81, file = "TH50_5281_S01 Up Outliers")
+```
+
+TH50_5282_S01
+```{r}
+
+# Get down outliers
+down_outliers_82 <- outlier_data %>%
+  filter(TH_id == "TH50_5282_S01", direction == "down") %>%
+  select(gene)
+write_tsv(down_outliers_82, file = "TH50_5282_S01 Down Outliers")
+
+# Get up outliers
+up_outliers_82 <- outlier_data %>%
+  filter(TH_id == "TH50_5282_S01", direction == "up") %>%
+  select(gene)
+write_tsv(up_outliers_82, file = "TH50_5282_S01 Up Outliers")
+```
+
+TH50_5283_S01
+```{r}
+
+# Get down outliers
+down_outliers_83 <- outlier_data %>%
+  filter(TH_id == "TH50_5283_S01", direction == "down") %>%
+  select(gene)
+write_tsv(down_outliers_83, file = "TH50_5283_S01 Down Outliers")
+
+# Get up outliers
+up_outliers_83 <- outlier_data %>%
+  filter(TH_id == "TH50_5283_S01", direction == "up") %>%
+  select(gene)
+write_tsv(up_outliers_83, file = "TH50_5283_S01 Up Outliers")
+```
+
+# Pathway Analysis
+
+## Down Outlier Gene Pathway Analysis
+```{r}
+
+# load down outlier pathway analysis files for each of 6 samples and extract the TH ID and add to a new column.
+down_pathway_data_raw <- set_names(
+  list.files(path = ".", pattern = "*_down_pathways", full.names = TRUE)) %>%
+  purrr::map_dfr(read_csv, .id="file_name", show_col_types = FALSE) %>%
+  mutate(TH_ID = str_extract(file_name, "TH\\d+(_\\d+)*_S\\d+"))
+```
+
+### All Down Pathways
+```{r}
+
+# filter for p value <= 0.05 and select for desired columns
+conflicts_prefer(dplyr::filter)
+
+filtered_down_pathways <- down_pathway_data_raw[down_pathway_data_raw$`Entities pValue` <= 5.0e-2, ]%>%
+  select('TH_ID', `Pathway name`, `Submitted entities found`, `Entities pValue`, `Entities FDR`)
+
+kbl(filtered_down_pathways) %>%
+  kable_styling(full_width = F)
+```
+
+### Overlapping Down Pathways
+```{r}
+
+# filter again for repeat pathways in multiple samples
+final_down_data <- filtered_down_pathways %>%
+  group_by(`Pathway name`) %>%
+  summarize(
+    Count = n(),
+    TH_IDs = paste(TH_ID, collapse = ", ")
+  ) %>%
+  filter(Count > 1) %>%
+  arrange(desc(Count))
+
+print(final_down_data)
+
+kbl(final_down_data) %>%
+  kable_styling(full_width = F)
+```
+
+## Up Outlier Gene Pathway Analysis
+```{r}
+
+# load up outlier pathway analysis files for each of 6 samples and extract the TH ID and add to a new column.
+up_pathway_data_raw <- set_names(
+  list.files(path = ".", pattern = "*_up_pathways", full.names = TRUE)) %>%
+  purrr::map_dfr(read_csv, .id="file_name", show_col_types = FALSE) %>%
+  mutate(TH_ID = str_extract(file_name, "TH\\d+(_\\d+)*_S\\d+"))
+```
+
+### All Up Pathways
+```{r}
+
+# filter for p value <= 0.05 and select for desired columns
+conflicts_prefer(dplyr::filter)
+
+filtered_up_pathways <- up_pathway_data_raw[up_pathway_data_raw$`Entities pValue` <= 5.0e-2, ]%>%
+  select('TH_ID', `Pathway name`, `Submitted entities found`, `Entities pValue`, `Entities FDR`)
+
+kbl(filtered_up_pathways) %>%
+  kable_styling(full_width = F)
+```
+
+### Overlapping Up Pathways
+```{r}
+
+# filter again for repeat pathways in multiple samples
+final_up_data <- filtered_up_pathways %>%
+  group_by(`Pathway name`) %>%
+  summarize(
+    Count = n(),
+    TH_IDs = paste(TH_ID, collapse = ", ")
+  ) %>%
+  filter(Count > 1) %>%
+  arrange(desc(Count))
+
+print(final_up_data)
+
+kbl(final_down_data) %>%
+  kable_styling(full_width = F)
+```

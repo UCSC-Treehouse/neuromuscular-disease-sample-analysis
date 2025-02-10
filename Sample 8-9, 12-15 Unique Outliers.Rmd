@@ -1,0 +1,412 @@
+---
+title: "Sample 8-9, 12-15 Unique Outliers"
+author: "Kaylee Delgado"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Setup
+```{r setup}
+
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(tidyr)
+library(stringr)
+library(conflicted)
+library(kableExtra)
+
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+```
+
+## Read in nof1 outlier data from tsv
+```{r read raw data}
+
+# Read the TSV file into a data frame
+outlier_data <- read.table("Sample 8-9, 12-15 nof1 Outlier Results.tsv", sep = "\t", header = TRUE)
+```
+
+## Unique Outliers 
+### (Up Outlier Count)
+```{r unique up outlier count}
+
+conflicts_prefer(dplyr::rename)
+
+# Work off the following outlier data (includes up and down for all 6 samples)
+outlier_data
+
+# TH50_5181_S01
+up_outliers_TH50_5181_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5181_S01') %>%
+  select(gene)
+# Find genes not present in other samples
+other_samples <- outlier_data %>%
+  filter(TH_id != 'TH50_5181_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df <- data.frame(gene = other_samples)
+# Identify unique up outliers in TH50_5181_S01
+unique_up_outliers_TH50_5181_S01 <- up_outliers_TH50_5181_S01 %>%
+  anti_join(other_samples_df, by = "gene") %>%
+  rename(Sample8 = gene)
+# Output unique up outliers
+unique_up_outliers_TH50_5181_S01 <- as.list(unique_up_outliers_TH50_5181_S01)
+
+# TH50_5182_S01
+up_outliers_TH50_5182_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5182_S01') %>%
+  select(gene)
+other_samples2 <- outlier_data %>%
+  filter(TH_id != 'TH50_5182_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df2 <- data.frame(gene = other_samples2)
+unique_up_outliers_TH50_5182_S01 <- up_outliers_TH50_5182_S01 %>%
+  anti_join(other_samples_df2, by = "gene") %>%
+  rename(Sample9 = gene)
+unique_up_outliers_TH50_5182_S01 <- as.list(unique_up_outliers_TH50_5182_S01)
+
+# TH50_5183_S01
+up_outliers_TH50_5183_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5183_S01') %>%
+  select(gene)
+other_samples3 <- outlier_data %>%
+  filter(TH_id != 'TH50_5183_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df3 <- data.frame(gene = other_samples3)
+unique_up_outliers_TH50_5183_S01 <- up_outliers_TH50_5183_S01 %>%
+  anti_join(other_samples_df3, by = "gene") %>%
+  rename(Sample12 = gene)
+unique_up_outliers_TH50_5183_S01 <- as.list(unique_up_outliers_TH50_5183_S01)
+
+# TH50_5184_S01
+up_outliers_TH50_5184_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5184_S01') %>%
+  select(gene)
+other_samples4 <- outlier_data %>%
+  filter(TH_id != 'TH50_5184_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df4 <- data.frame(gene = other_samples4)
+unique_up_outliers_TH50_5184_S01 <- up_outliers_TH50_5184_S01 %>%
+  anti_join(other_samples_df4, by = "gene") %>%
+  rename(Sample13 = gene)
+unique_up_outliers_TH50_5184_S01 <- as.list(unique_up_outliers_TH50_5184_S01)
+
+# TH50_5185_S01
+up_outliers_TH50_5185_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5185_S01') %>%
+  select(gene)
+other_samples5 <- outlier_data %>%
+  filter(TH_id != 'TH50_5185_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df5 <- data.frame(gene = other_samples5)
+unique_up_outliers_TH50_5185_S01 <- up_outliers_TH50_5185_S01 %>%
+  anti_join(other_samples_df5, by = "gene") %>%
+  rename(Sample14 = gene)
+unique_up_outliers_TH50_5185_S01 <- as.list(unique_up_outliers_TH50_5185_S01)
+
+# TH50_5186_S01
+up_outliers_TH50_5186_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5186_S01') %>%
+  select(gene)
+other_samples6 <- outlier_data %>%
+  filter(TH_id != 'TH50_5186_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df6 <- data.frame(gene = other_samples6)
+unique_up_outliers_TH50_5186_S01 <- up_outliers_TH50_5186_S01 %>%
+  anti_join(other_samples_df6, by = "gene") %>%
+  rename(Sample15 = gene)
+unique_up_outliers_TH50_5186_S01 <- as.list(unique_up_outliers_TH50_5186_S01)
+
+library(purrr)
+library(stringr)
+
+# Combine the unique up outliers into a single dataframe
+combined_up_outliers <- unique(c(unique_up_outliers_TH50_5181_S01,
+ unique_up_outliers_TH50_5182_S01,
+ unique_up_outliers_TH50_5183_S01,
+ unique_up_outliers_TH50_5184_S01,
+ unique_up_outliers_TH50_5185_S01,
+ unique_up_outliers_TH50_5186_S01))
+
+combined_up_outliers_df <- data.frame(Outliers = I(combined_up_outliers))
+
+# Convert each row of the data frame to a character string
+combined_up_outliers_text <- apply(combined_up_outliers_df, 1, function(x) paste(x, collapse = ", "))
+
+# Write the character vector to a text file
+writeLines(combined_up_outliers_text, "Unique Up Outliers Samples 8-9, 12-15.txt")
+
+# Check the length of each row/list 
+check_up_row_lengths <- sapply(combined_up_outliers_df$Outliers, length) 
+
+# Create a data frame with the values and corresponding labels
+combined_up_outlier_data <- data.frame(
+  Sample = c("Sample 8", "Sample 9", "Sample 12", "Sample 13", "Sample 14", "Sample 15"),
+  Value = c(140, 126,  56,  71,  19, 244)
+)
+
+# Create the histogram with n= labels and adjustments
+combined_up_outlier_histogram <- ggplot(combined_up_outlier_data, aes(x = Sample, y = Value)) +
+  geom_bar(stat = "identity", fill = "blue", color = "white") +
+  geom_text(aes(label = paste0("n=", Value)), vjust = -0.5, size = 4, 
+            position = position_dodge(width = 0.9)) + 
+  labs(
+    title = "Unique Up Outliers",
+    x = "Sample",
+    y = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 26, face = "bold", hjust = 1, angle = 45, 
+                              margin = margin(t = 10)), # Add margin for label space
+    axis.text.y = element_text(size = 26, face = "bold"),
+    axis.title.x = element_text(size = 32, face = "bold"),
+    axis.title.y = element_text(size = 26, face = "bold"),
+    plot.title = element_text(size = 36, face = "bold"),
+    plot.margin = margin(t = 10, r = 20, b = 10, l = 20) # Increase plot margins
+  )
+
+# Display the plot
+print(combined_up_outlier_histogram)
+
+# Save plot
+ggsave("Unique Up Outliers Count.png", combined_up_outlier_histogram, width = 10, height = 10)
+```
+
+### Up Outlier OMIM Filtering
+```{r unique up outlier OMIM filtered}
+
+# Filter for OMIM Gene lists for "muscle disease" and "muscle disorder"
+# Provided list of gene names
+OMIM_genes <- c("RMD1", "RMD2", "CAV3", "DMD", "ARVD1", "IBMPFD1", "CMYO2B", "MFM8", "FSHD1", "SGCD", "DYSF", "LMNA", "MYH11", "BCL2", "DA1A", "CMD1A", "CMYO7A", "LGMDD3", "LQT12", "MPDT", "MHS1", "GSD7", "MMIHS2", "MMIHS5", "LGMD427", "IMD93", "CMD2G", "CMYO2C", "CMYO20", "CMH26", "MDCDC", "LVNC8", "CMD1L", "CGL4", "CDSP", "CTRCT46", "EBS5B", "FRDA", "BROD", "DA2B1", "MRUPAV", "MDCMC", "LGMDD1", "LGMDR5", "CMYO4A", "NEM2", "SMA4", "CDCBM14A", "SANDO", "ATFB3", "MDC1A", "MPD7", "CMD3B", "VSCM1", "TAM1", "DM1", "CNMX", "MEAX", "SMAX1", "TMD", "CMD1B", "ARVD3", "HUMOP1", "ACTG2", "FLNC", "ACTA1", "APOE", "CHAT", "COL6A1", "SERPINA6", "CHKB", "MEGF10", "PLIN4", "TTN", "PYROXD1", "DES", "FBL", "SNTA1", "JAG2", "CAVIN1", "BNIP3", "CDC42BPA", "BAG3", "BECN1", "TRIP4", "FXN", "PRDM16", "SELENON", "SMPX", "ISG15", "LAMA2", "MB", "MYH7", "MYL1", "NOS1", "MTTA", "MTTP", "NLSDM", "CYMO19", "EDMD2", "UCMD1A", "BTHLM1A", "ANO5", "MFM2", "NEM6", "MPD3", "SCAR8", "MPD4", "CMYO10A", "TTPP1", "CMS25", "CMYO14", "AMC3", "CMYO16", "MPD6", "CMYO9B", "LGMDR26", "OPDM2", "CMYO17", "MFM10", "MFM11", "AMC6", "FSHD3", "FSHD4", "CMYO11", "MMCKR1", "CMYO15", "CMYO10B", "CMYO21", "CMYO22A", "CMYO22B", "NEM5B", "NEM5C", "OPDM2", "LCCS7", "CMS19", "MDRCMTT", "SHPM", "MPD5", "MFM7", "NEM8", "MDDGC14", "MPXPS", "MPXPS", "MPXPS", "NEM9", "CMS14", "VMCQA", "MHS5", "LGMDR7", "MFM9", "MMD1", "CFZS1", "CMYO7B", "NEM5A", "CMYO6", "RBMX1A", "WRWF", "MMCKR2", "MTMR14", "KEL", "TRAPPC11", "KCNE3", "MICU1")
+
+# Create a dataframe with a single column named "Gene"
+OMIM_genes_df <- data.frame(Gene = OMIM_genes)
+
+combined_up_outliers2 <- bind_rows(
+  Sample8 = unique_up_outliers_TH50_5181_S01,
+  Sample9 = unique_up_outliers_TH50_5182_S01,
+  Sample12 = unique_up_outliers_TH50_5183_S01,
+  Sample13 = unique_up_outliers_TH50_5184_S01,
+  Sample14 = unique_up_outliers_TH50_5185_S01,
+  Sample15 = unique_up_outliers_TH50_5186_S01
+)
+
+# Unnest the combined_up_outliers2 data frame
+combined_up_outliers2_long <- combined_up_outliers2 %>%
+  pivot_longer(cols = everything(),
+               names_to = "Sample",
+               values_to = "Gene")
+
+# Filter the unnested data frame based on OMIM genes
+filtered_up_outliers2_long <- combined_up_outliers2_long %>%
+  filter(Gene %in% OMIM_genes_df$Gene)
+
+# Pivot the filtered data back to wide format
+filtered_up_outliers_wide <- filtered_up_outliers2_long %>%
+  pivot_wider(names_from = Sample, values_from = Gene)
+
+print(filtered_up_outliers_wide)
+```
+
+
+## (Down Outlier Count)
+```{r down outlier count}
+# Work off the following outlier data (includes up and down for all 6 samples)
+outlier_data
+
+# TH50_5181_S01
+down_outliers_TH50_5181_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5181_S01') %>%
+  select(gene)
+# Find genes not present in other samples
+other_samples7 <- outlier_data %>%
+  filter(TH_id != 'TH50_5181_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df7 <- data.frame(gene = other_samples7)
+# Identify unique up outliers in TH50_5178_S01
+unique_down_outliers_TH50_5181_S01 <- down_outliers_TH50_5181_S01 %>%
+  anti_join(other_samples_df7, by = "gene") %>%
+  rename(Sample8 = gene)
+# Output unique up outliers
+unique_down_outliers_TH50_5181_S01 <- as.list(unique_down_outliers_TH50_5181_S01)
+
+# TH50_5182_S01
+down_outliers_TH50_5182_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5182_S01') %>%
+  select(gene)
+other_samples8 <- outlier_data %>%
+  filter(TH_id != 'TH50_5182_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df8 <- data.frame(gene = other_samples8)
+unique_down_outliers_TH50_5182_S01 <- down_outliers_TH50_5182_S01 %>%
+  anti_join(other_samples_df8, by = "gene") %>%
+  rename(Sample9 = gene)
+unique_down_outliers_TH50_5182_S01 <- as.list(unique_down_outliers_TH50_5182_S01)
+
+# TH50_5183_S01
+down_outliers_TH50_5183_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5183_S01') %>%
+  select(gene)
+other_samples9 <- outlier_data %>%
+  filter(TH_id != 'TH50_5183_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df9 <- data.frame(gene = other_samples9)
+unique_down_outliers_TH50_5183_S01 <- down_outliers_TH50_5183_S01 %>%
+  anti_join(other_samples_df9, by = "gene") %>%
+  rename(Sample12 = gene)
+unique_down_outliers_TH50_5183_S01 <- as.list(unique_down_outliers_TH50_5183_S01)
+
+# TH50_5184_S01
+down_outliers_TH50_5184_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5184_S01') %>%
+  select(gene)
+other_samples10 <- outlier_data %>%
+  filter(TH_id != 'TH50_5184_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df10 <- data.frame(gene = other_samples10)
+unique_down_outliers_TH50_5184_S01 <- down_outliers_TH50_5184_S01 %>%
+  anti_join(other_samples_df10, by = "gene") %>%
+  rename(Sample13 = gene)
+unique_down_outliers_TH50_5184_S01 <- as.list(unique_down_outliers_TH50_5184_S01)
+
+# TH50_5185_S01
+down_outliers_TH50_5185_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5185_S01') %>%
+  select(gene)
+other_samples11 <- outlier_data %>%
+  filter(TH_id != 'TH50_5185_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df11 <- data.frame(gene = other_samples11)
+unique_down_outliers_TH50_5185_S01 <- down_outliers_TH50_5185_S01 %>%
+  anti_join(other_samples_df11, by = "gene") %>%
+  rename(Sample14 = gene)
+unique_down_outliers_TH50_5185_S01 <- as.list(unique_down_outliers_TH50_5185_S01)
+
+# TH50_5186_S01
+down_outliers_TH50_5186_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5186_S01') %>%
+  select(gene)
+other_samples12 <- outlier_data %>%
+  filter(TH_id != 'TH50_5186_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df12 <- data.frame(gene = other_samples12)
+unique_down_outliers_TH50_5186_S01 <- down_outliers_TH50_5186_S01 %>%
+  anti_join(other_samples_df12, by = "gene") %>%
+  rename(Sample15 = gene)
+unique_down_outliers_TH50_5186_S01 <- as.list(unique_down_outliers_TH50_5186_S01)
+
+# Combine the unique down outliers into a single dataframe
+combined_down_outliers <- unique(c(unique_down_outliers_TH50_5181_S01,
+                                  unique_down_outliers_TH50_5182_S01,
+                                  unique_down_outliers_TH50_5183_S01,
+                                  unique_down_outliers_TH50_5184_S01,
+                                  unique_down_outliers_TH50_5185_S01,
+                                  unique_down_outliers_TH50_5186_S01))
+
+combined_down_outliers_df <- data.frame(Outliers = I(combined_down_outliers))
+
+# Convert each row of the data frame to a character string
+combined_down_outliers_text <- apply(combined_down_outliers_df, 1, function(x) paste(x, collapse = ", "))
+
+# Write the character vector to a text file
+writeLines(combined_down_outliers_text, "Unique Down Outliers Samples 8-9, 12-15.txt")
+
+
+# Check the length of each row/list 
+check_down_row_lengths <- sapply(combined_down_outliers_df$Outliers, length) 
+
+# Create a data frame with the values and corresponding labels
+combined_down_outlier_data <- data.frame(
+  Sample = c("Sample 8", "Sample 9", "Sample 12", "Sample 13", "Sample 14", "Sample 15"),
+  Value = c(8, 1156, 4, 23, 87, 365)
+)
+
+# Create the histogram
+combined_down_outlier_histogram <- ggplot(combined_down_outlier_data, aes(x = Sample, y = Value)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "white") +
+  geom_text(aes(label = paste0("n=", Value)), vjust = -0.5, size = 4, 
+            position = position_dodge(width = 0.9)) + 
+  labs(title = "Unique Down Outliers",
+       x = "Sample", y = "Count") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(size = 26, face = "bold", hjust = 1, angle = 45),
+        axis.text.y = element_text(size = 26, face = "bold"),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 26, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"))
+
+ggsave("Unique Down Outlier Count.png", combined_down_outlier_histogram, width = 10, height = 10)
+```
+
+### Down Outlier OMIM Filtering
+```{r down outlier OMIM filtering}
+
+# Filter for OMIM Gene lists for "muscle disease" and "muscle disorder"
+# Provided list of gene names
+OMIM_genes <- c("RMD1", "RMD2", "CAV3", "DMD", "ARVD1", "IBMPFD1", "CMYO2B", "MFM8", "FSHD1", "SGCD", "DYSF", "LMNA", "MYH11", "BCL2", "DA1A", "CMD1A", "CMYO7A", "LGMDD3", "LQT12", "MPDT", "MHS1", "GSD7", "MMIHS2", "MMIHS5", "LGMD427", "IMD93", "CMD2G", "CMYO2C", "CMYO20", "CMH26", "MDCDC", "LVNC8", "CMD1L", "CGL4", "CDSP", "CTRCT46", "EBS5B", "FRDA", "BROD", "DA2B1", "MRUPAV", "MDCMC", "LGMDD1", "LGMDR5", "CMYO4A", "NEM2", "SMA4", "CDCBM14A", "SANDO", "ATFB3", "MDC1A", "MPD7", "CMD3B", "VSCM1", "TAM1", "DM1", "CNMX", "MEAX", "SMAX1", "TMD", "CMD1B", "ARVD3", "HUMOP1", "ACTG2", "FLNC", "ACTA1", "APOE", "CHAT", "COL6A1", "SERPINA6", "CHKB", "MEGF10", "PLIN4", "TTN", "PYROXD1", "DES", "FBL", "SNTA1", "JAG2", "CAVIN1", "BNIP3", "CDC42BPA", "BAG3", "BECN1", "TRIP4", "FXN", "PRDM16", "SELENON", "SMPX", "ISG15", "LAMA2", "MB", "MYH7", "MYL1", "NOS1", "MTTA", "MTTP", "NLSDM", "CYMO19", "EDMD2", "UCMD1A", "BTHLM1A", "ANO5", "MFM2", "NEM6", "MPD3", "SCAR8", "MPD4", "CMYO10A", "TTPP1", "CMS25", "CMYO14", "AMC3", "CMYO16", "MPD6", "CMYO9B", "LGMDR26", "OPDM2", "CMYO17", "MFM10", "MFM11", "AMC6", "FSHD3", "FSHD4", "CMYO11", "MMCKR1", "CMYO15", "CMYO10B", "CMYO21", "CMYO22A", "CMYO22B", "NEM5B", "NEM5C", "OPDM2", "LCCS7", "CMS19", "MDRCMTT", "SHPM", "MPD5", "MFM7", "NEM8", "MDDGC14", "MPXPS", "MPXPS", "MPXPS", "NEM9", "CMS14", "VMCQA", "MHS5", "LGMDR7", "MFM9", "MMD1", "CFZS1", "CMYO7B", "NEM5A", "CMYO6", "RBMX1A", "WRWF", "MMCKR2", "MTMR14", "KEL", "TRAPPC11", "KCNE3", "MICU1")
+
+# Create a dataframe with a single column named "Gene"
+OMIM_genes_df <- data.frame(Gene = OMIM_genes)
+
+combined_down_outliers2 <- bind_rows(
+ Sample8 = unique_down_outliers_TH50_5181_S01,
+ Sample9 = unique_down_outliers_TH50_5182_S01,
+ Sample12 = unique_down_outliers_TH50_5183_S01,
+ Sample13 = unique_down_outliers_TH50_5184_S01,
+ Sample14 = unique_down_outliers_TH50_5185_S01,
+ Sample15 = unique_down_outliers_TH50_5186_S01
+)
+
+# Unnest the combined_down_outliers2 data frame
+combined_down_outliers2_long <- combined_down_outliers2 %>%
+ pivot_longer(cols = everything(),
+names_to = "Sample",
+values_to = "Gene")
+
+# Filter the unnested data frame based on OMIM genes
+filtered_down_outliers2_long <- combined_down_outliers2_long %>%
+ filter(Gene %in% OMIM_genes_df$Gene)
+
+# Print the result
+print(filtered_down_outliers2_long)
+```
+
+
+### Unique Up & Down Outlier Table
+```{r outlier table}
+
+# Write Table with OMIM filtered up outlier results (8=ANO5=up, 9=FXN=up, 9=BAG3=down, 9=CHKB=down, 9=FLNC=down, 9=JAG2=down, 9=LMNA=down, 9=MTMR14=down, 9=PLIN4=down, 13=MEGF10=up, 15=FBL=down)
+
+OMIM_filtered_outlier_table <- tibble(
+  `Sample` = c("Sample 8", "Sample 9", "Sample 9", "Sample 9", "Sample 9", "Sample 9", "Sample 9", "Sample 9", "Sample 9", "Sample 13", "Sample 15"),
+  `Gene Symbol` = c("ANO5", "FXN", "BAG3", "CHKB", "FLNC", "JAG2", "LMNA", "MTMR14", "PLIN4", "MEGF10", "FBL"),
+  `Gene Name` = c("Anoctamin 5", "Frataxin", "BAG Cochaperone 3", "Choline Kinase Beta", "Filamin C", "Jagged Canonical Notch Ligand 2", "Lamin A/C", "Myotubularin-Related Protein 14", "Perilipin 4", "Multiple Epidermal Growth Factor-Like Domains 10", "Fibrillarin"),
+  `Direction of Outlier` = c("Up", "Up", "Down", "Down", "Down", "Down", "Down", "Down", "Down", "Up", "Down")
+)
+
+# Style
+kable(OMIM_filtered_outlier_table, 
+      caption = "<span style='font-weight: bold; color: black;'>Outliers Filtered for Known Muscle Disease-Related Genes</span>",
+      booktabs = TRUE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
+  column_spec(1:4, width = "10em")
+```
+
+

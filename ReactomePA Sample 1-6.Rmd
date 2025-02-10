@@ -1,0 +1,305 @@
+---
+title: "ReactomePA Sample 1-6"
+author: "Kaylee Delgado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+
+Description from Bioconductor: "This package provides functions for pathway analysis based on REACTOME pathway database. It implements enrichment analysis, gene set enrichment analysis and several functions for visualization.
+This package is not affiliated with the Reactome team."
+
+Explainer File : https://bioconductor.org/packages/release/bioc/manuals/ReactomePA/man/ReactomePA.pdf
+
+## Install Packages
+```{r packages, results='hide', message=FALSE}
+
+#install packages
+CRANpkg <- function (pkg) {
+    cran <- "https://CRAN.R-project.org/package"
+    fmt <- "[%s](%s=%s)"
+    sprintf(fmt, pkg, cran, pkg)
+}
+
+library(dplyr)
+library(org.Hs.eg.db)
+library(DOSE)
+library(ReactomePA)
+library(AnnotationDbi)
+library(BiocGenerics)
+library(stats4)
+library(knitr)
+library(conflicted)
+library(readr)
+library(formatR)
+library(stringr)
+library(kableExtra)
+library(evaluate)
+library(rmarkdown)
+```
+
+## File Input
+```{r}
+
+# Read the TSV file into a data frame
+outlier_data <- read.table("Sample 1-6 nof1 Outlier Results.tsv", sep = "\t", header = TRUE)
+```
+
+## Pathways Enrichment:
+### Down Outliers for TH50_5178_S01
+```{r, message=FALSE}
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::select)
+
+# Input down outlier genes
+down_outliers_78 <- outlier_data %>%
+  filter(TH_id == "TH50_5178_S01", direction == "down") %>%
+  select(gene)
+
+# First turn outlier gene name list into gene ID list
+down_gene_IDs_78 <- mapIds(org.Hs.eg.db, keys = down_gene_names_78, column = "ENTREZID", keytype = "SYMBOL")
+
+# Second perform Reactome Pathway Enrichment
+down_enrich_pathway_78 <- enrichPathway(down_gene_IDs_78, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+
+# Read results as a dataframe
+down_ep_78_results <- as.data.frame(down_enrich_pathway_78)
+
+kable(down_ep_78_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Up Outliers for TH50_5178_S01
+```{r, message=FALSE}
+
+#repeat above steps for up outliers
+up_outliers_78 <- outlier_data %>%
+  filter(TH_id == "TH50_5178_S01", direction == "up") %>%
+  select(gene)
+
+up_gene_names_78 <- up_outliers_78$gene
+
+up_gene_IDs_78 <- mapIds(org.Hs.eg.db, keys = up_gene_names_78, column = "ENTREZID", keytype = "SYMBOL")
+
+up_enrich_pathway_78 <- enrichPathway(up_gene_IDs_78, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+
+up_ep_78_results <- as.data.frame(up_enrich_pathway_78)
+
+kable(up_ep_78_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Down Outliers for TH50_5179_S01
+```{r, message=FALSE}
+
+#now repeat for all samples
+down_outliers_79 <- outlier_data %>%
+  filter(TH_id == "TH50_5179_S01", direction == "down") %>%
+  select(gene)
+
+down_gene_IDs_79 <- mapIds(org.Hs.eg.db, keys = down_gene_names_79, column = "ENTREZID", keytype = "SYMBOL")
+
+down_enrich_pathway_79 <- enrichPathway(down_gene_IDs_79, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+
+down_ep_79_results <- as.data.frame(down_enrich_pathway_79)
+
+kable(down_ep_79_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Up Outliers for TH50_5179_S01
+```{r, message=FALSE}
+up_outliers_79 <- outlier_data %>%
+  filter(TH_id == "TH50_5179_S01", direction == "up") %>%
+  select(gene)
+
+up_gene_IDs_79 <- mapIds(org.Hs.eg.db, keys = up_gene_names_79, column = "ENTREZID", keytype = "SYMBOL")
+
+up_enrich_pathway_79 <- enrichPathway(up_gene_IDs_79, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+
+up_ep_79_results <- as.data.frame(up_enrich_pathway_79)
+
+kable(up_ep_79_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Down Outliers for TH50_5280_S01
+```{r, message=FALSE}
+down_outliers_80 <- outlier_data %>%
+  filter(TH_id == "TH50_5280_S01", direction == "down") %>%
+  select(gene)
+
+down_gene_IDs_80 <- mapIds(org.Hs.eg.db, keys = down_gene_names_80, column = "ENTREZID", keytype = "SYMBOL")
+
+down_enrich_pathway_80 <- enrichPathway(down_gene_IDs_80, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+
+down_ep_80_results <- as.data.frame(down_enrich_pathway_80)
+
+kable(down_ep_80_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Up Outliers for TH50_5280_S01
+```{r, message=FALSE}
+up_outliers_80 <- outlier_data %>%
+  filter(TH_id == "TH50_5280_S01", direction == "up") %>%
+  select(gene)
+
+up_gene_IDs_80 <- mapIds(org.Hs.eg.db, keys = up_gene_names_80, column = "ENTREZID", keytype = "SYMBOL")
+
+up_enrich_pathway_80 <- enrichPathway(up_gene_IDs_80, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+
+up_ep_80_results <- as.data.frame(up_enrich_pathway_80)
+
+kable(up_ep_80_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Down Outliers for TH50_5281_S01
+```{r, message=FALSE}
+down_outliers_81 <- outlier_data %>%
+  filter(TH_id == "TH50_5281_S01", direction == "down") %>%
+  select(gene)
+
+down_gene_IDs_81 <- mapIds(org.Hs.eg.db, keys = down_gene_names_81, column = "ENTREZID", keytype = "SYMBOL")
+
+down_enrich_pathway_81 <- enrichPathway(
+  down_gene_IDs_81,
+  organism = "human",
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  qvalueCutoff = 0.2,
+  minGSSize = 10,
+  maxGSSize = 500,
+  readable = TRUE
+)
+
+down_ep_81_results <- as.data.frame(down_enrich_pathway_81)
+
+kable(down_ep_81_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Up Outliers for TH50_5281_S01
+```{r, message=FALSE}
+up_outliers_81 <- outlier_data %>%
+  filter(TH_id == "TH50_5281_S01", direction == "up") %>%
+  select(gene)
+
+up_gene_IDs_81 <- mapIds(org.Hs.eg.db, keys = up_gene_names_81, column = "ENTREZID", keytype = "SYMBOL")
+
+up_enrich_pathway_81 <- enrichPathway(
+  up_gene_IDs_81,
+  organism = "human",
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  qvalueCutoff = 0.2,
+  minGSSize = 10,
+  maxGSSize = 500,
+  readable = TRUE
+)
+
+up_ep_81_results <- as.data.frame(up_enrich_pathway_81)
+```
+
+### Down Outliers for TH50_5282_S01
+```{r, message=FALSE}
+down_outliers_82 <- outlier_data %>%
+  filter(TH_id == "TH50_5282_S01", direction == "down") %>%
+  select(gene)
+
+down_gene_IDs_82 <- mapIds(org.Hs.eg.db, keys = down_gene_names_82, column = "ENTREZID", keytype = "SYMBOL")
+
+down_enrich_pathway_82 <- enrichPathway(
+  down_gene_IDs_82,
+  organism = "human",
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  qvalueCutoff = 0.2,
+  minGSSize = 10,
+  maxGSSize = 500,
+  readable = TRUE
+)
+
+down_ep_82_results <- as.data.frame(down_enrich_pathway_82)
+
+kable(down_ep_82_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Up Outliers for TH50_5282_S01
+```{r, message=FALSE}
+up_outliers_82 <- outlier_data %>%
+  filter(TH_id == "TH50_5282_S01", direction == "up") %>%
+  select(gene)
+
+up_gene_IDs_82 <- mapIds(org.Hs.eg.db, keys = up_gene_names_82, column = "ENTREZID", keytype = "SYMBOL")
+
+up_enrich_pathway_82 <- enrichPathway(
+  up_gene_IDs_82,
+  organism = "human",
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  qvalueCutoff = 0.2,
+  minGSSize = 10,
+  maxGSSize = 500,
+  readable = TRUE
+)
+
+up_ep_82_results <- as.data.frame(up_enrich_pathway_82)
+
+kable(up_ep_82_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Down Outliers for TH50_5283_S01
+```{r, message=FALSE}
+down_outliers_83 <- outlier_data %>%
+  filter(TH_id == "TH50_5283_S01", direction == "down") %>%
+  select(gene)
+
+down_gene_IDs_83 <- mapIds(org.Hs.eg.db, keys = down_gene_names_83, column = "ENTREZID", keytype = "SYMBOL")
+
+down_enrich_pathway_83 <- enrichPathway(
+  down_gene_IDs_83,
+  organism = "human",
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  qvalueCutoff = 0.2,
+  minGSSize = 10,
+  maxGSSize = 500,
+  readable = TRUE
+)
+
+down_ep_83_results <- as.data.frame(down_enrich_pathway_83)
+
+kable(down_ep_83_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```
+
+### Up Outliers for TH50_5283_S01
+```{r, message=FALSE}
+up_outliers_83 <- outlier_data %>%
+  filter(TH_id == "TH50_5283_S01", direction == "up") %>%
+  select(gene)
+
+up_gene_IDs_83 <- mapIds(org.Hs.eg.db, keys = up_gene_names_83, column = "ENTREZID", keytype = "SYMBOL")
+
+up_enrich_pathway_83 <- enrichPathway(
+  up_gene_IDs_83,
+  organism = "human",
+  pvalueCutoff = 0.05,
+  pAdjustMethod = "BH",
+  qvalueCutoff = 0.2,
+  minGSSize = 10,
+  maxGSSize = 500,
+  readable = TRUE
+)
+
+up_ep_83_results <- as.data.frame(up_enrich_pathway_83)
+
+kable(up_ep_83_results) %>%
+  kable_styling(full_width = FALSE, position = "left")
+```

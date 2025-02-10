@@ -1,0 +1,1217 @@
+---
+title: "Samples 1-6 Tables, Heat Maps,  Venn Diagrams"
+author: "Kaylee Delgado"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(tidyr)
+library(stringr)
+library(org.Hs.eg.db)
+library(DOSE)
+library(ReactomePA)
+library(AnnotationDbi)
+library(BiocGenerics)
+library(conflicted)
+library(kableExtra)
+
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+```
+
+## Outlier Data
+
+### Tables for Context
+
+#### (Up Outliers)
+
+```{r up outlier table}
+
+# Read the TSV file into a data frame
+outlier_data <- read.table("Sample 1-6 nof1 Outlier Results.tsv", sep = "\t", header = TRUE)
+
+# Create a mapping data frame
+mapping <- data.frame(TH_id = unique(outlier_data$TH_id),
+                      Number = 1:length(unique(outlier_data$TH_id)))
+
+# Join the mapping with the outlier data
+outlier_data_mapped <- outlier_data %>%
+  left_join(mapping, by = "TH_id")
+
+# Replace TH_IDs with numbers
+outlier_data_mapped$TH_id <- outlier_data_mapped$Number
+
+# Recalculate up outliers count
+up_outliers_count_mapped <- outlier_data_mapped %>%
+  filter(direction == "up") %>%
+  dplyr::group_by(TH_id) %>%
+  dplyr::tally() %>%
+  dplyr::rename(Count = n)
+
+# Convert TH_id to character before plotting
+up_outlier_plot_mapped <- ggplot(up_outliers_count_mapped, aes(x = factor(TH_id, labels = 1:6), y = Count)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(title = "Up Outliers by\nPatient Sample", x = "Sample", y = "Outlier Count") +
+  theme_classic() +
+  theme(axis.text.x = element_text(size = 28, face = "bold", hjust = 1),
+        axis.text.y = element_text(size = 28, face = "bold"),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 32, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"),
+        legend.key = element_rect(color = "black", fill = NA))
+
+# Save plot
+ggsave("Up Outlier Count Plot.png", up_outlier_plot_mapped)
+```
+
+#### (Down Outliers) 
+
+```{r down outlier table}
+
+# Count down outliers in each sample
+down_outliers_count_mapped <- outlier_data_mapped %>%
+  filter(direction == "down") %>%
+  dplyr::group_by(TH_id) %>%
+  dplyr::tally() %>%
+  dplyr::rename(Count = n)
+
+# Convert TH_id to character before plotting
+down_outliers_count_mapped$TH_id <- as.character(down_outliers_count_mapped$TH_id)
+
+# Create table
+down_outlier_plot_mapped <- ggplot(down_outliers_count_mapped, aes(x = factor(TH_id, labels = 1:6), y = Count)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  labs(title = "Down Outliers by\nPatient Sample", x = "Sample", y = "Outlier Count") +
+  theme_classic() +
+  theme(axis.text.x = element_text(size = 28, face = "bold", hjust = 1),
+        axis.text.y = element_text(size = 28, face = "bold"),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 32, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"),
+        legend.key = element_rect(color = "black", fill = NA))
+
+# Save plot
+ggsave("Down Outlier Count Plot.png", down_outlier_plot_mapped)
+```
+
+### Heat Maps
+
+#### (Up Outliers)
+
+```{r up outlier heat map}
+
+# Filter for up outlier genes across >3 TH IDs
+unique_up_outliers <- outlier_data_mapped %>%
+  filter(direction == 'up') %>%
+  dplyr::group_by(gene) %>%
+  summarize(
+    Count = n(),
+    TH_IDs = paste(TH_id, collapse = ", ")
+  ) %>%
+  filter(Count > 3) %>%
+  arrange(desc(Count)) %>%
+  select(gene, TH_IDs)
+
+# Extract unique TH_IDs
+unique_up_th_ids <- str_split(unique_up_outliers$TH_IDs, ",\\s+") %>%
+  unlist() %>%
+  unique()
+
+# Create new columns for each unique TH_ID
+pivot_up_outliers <- unique_up_outliers %>%
+  mutate(TH_IDs = str_split(TH_IDs, ",\\s+")) %>%
+  unnest(TH_IDs) %>%
+  mutate(Presence = 1) %>%
+  pivot_wider(names_from = TH_IDs, values_from = Presence, values_fill = 0)
+
+# Select only the desired columns
+pivot_up_outliers <- pivot_up_outliers %>%
+  select(gene, all_of(unique_up_th_ids))
+
+# Convert TH_IDs to characters
+pivot_up_outliers <- pivot_up_outliers %>%
+  mutate_at(vars(all_of(unique_up_th_ids)), as.character)
+
+# Melt the data to long format
+melt_up_outliers <- melt(pivot_up_outliers, id.vars = "gene")
+
+# Create the heatmap
+up_outlier_heatmap <- ggplot(melt_up_outliers, aes(x = gene, y = variable, fill = factor(value))) +
+  geom_tile() +
+  scale_fill_manual(values = c("1" = "blue", "0" = "white"), name = "Presence") +
+  labs(x = "Up Outlier Gene", y = "Sample", fill = "Presence") +
+  ggtitle("Up Outlier Gene\nPresence (>3 Patient\nSamples)") +
+  theme_minimal() +
+  coord_flip() +
+  theme(axis.text.x = element_text(size = 28, face = "bold", hjust = 1),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 32, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"),
+        legend.position = "none")
+
+# Save plot
+ggsave("Up Outlier Heat Map.png", up_outlier_heatmap, width = 10, height = 10)
+```
+
+#### (Down Outliers)
+
+```{r down outlier heat map}
+
+# Filter for up outlier genes across >3 TH IDs
+unique_down_outliers <- outlier_data_mapped %>%
+  filter(direction == 'down') %>%
+  dplyr::group_by(gene) %>%
+  summarize(
+    Count = n(),
+    TH_IDs = paste(TH_id, collapse = ", ")
+  ) %>%
+  filter(Count > 3) %>%
+  arrange(desc(Count)) %>%
+  select(gene, TH_IDs)
+
+# Extract unique TH_IDs
+unique_down_th_ids <- str_split(unique_down_outliers$TH_IDs, ",\\s+") %>%
+  unlist() %>%
+  unique()
+
+# Create new columns for each unique TH_ID
+pivot_down_outliers <- unique_down_outliers %>%
+  mutate(TH_IDs = str_split(TH_IDs, ",\\s+")) %>%
+  unnest(TH_IDs) %>%
+  mutate(Presence = 1) %>%
+  pivot_wider(names_from = TH_IDs, values_from = Presence, values_fill = 0)
+
+# Select only the desired columns
+pivot_down_outliers <- pivot_down_outliers %>%
+  select(gene, all_of(unique_down_th_ids))
+
+# Convert TH_IDs to characters
+pivot_down_outliers <- pivot_down_outliers %>%
+  mutate_at(vars(all_of(unique_down_th_ids)), as.character)
+
+# Melt the data to long format
+melt_down_outliers <- melt(pivot_down_outliers, id.vars = "gene")
+
+# Create the heatmap
+down_outlier_heatmap <- ggplot(melt_down_outliers, aes(x = gene, y = variable, fill = factor(value))) +
+  geom_tile() +
+  scale_fill_manual(values = c("1" = "skyblue", "0" = "white"), name = "Presence") + # Use scale_fill_manual for custom colors
+  labs(x = "Down Outlier Gene", y = "Sample", fill = "Presence") +
+  ggtitle("Down Outlier Gene\nPresence (>3\nPatient Samples)") +
+  theme_minimal() +
+  coord_flip() + # For better readability, flip the axes
+  theme(axis.text.x = element_text(size = 26, face = "bold", hjust = 1),
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 26, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"),
+        legend.position = "none")
+
+# Save plot
+ggsave("Down Outlier Heat Map.png", down_outlier_heatmap, width = 10, height = 10)
+```
+
+# _________________________
+
+
+
+## Unique Outliers 
+### (Up Outliers)
+```{r}
+conflicts_prefer(dplyr::rename)
+
+# Work off the following outlier data (includes up and down for all 6 samples)
+outlier_data
+
+# TH50_5178_S01
+up_outliers_TH50_5178_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5178_S01') %>%
+  select(gene)
+# Find genes not present in other samples
+other_samples <- outlier_data %>%
+  filter(TH_id != 'TH50_5178_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df <- data.frame(gene = other_samples)
+# Identify unique up outliers in TH50_5178_S01
+unique_up_outliers_TH50_5178_S01 <- up_outliers_TH50_5178_S01 %>%
+  anti_join(other_samples_df, by = "gene") %>%
+  rename(Sample1 = gene)
+# Output unique up outliers
+unique_up_outliers_TH50_5178_S01 <- as.list(unique_up_outliers_TH50_5178_S01)
+
+# TH50_5179_S01
+up_outliers_TH50_5179_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5179_S01') %>%
+  select(gene)
+other_samples2 <- outlier_data %>%
+  filter(TH_id != 'TH50_5179_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df2 <- data.frame(gene = other_samples2)
+unique_up_outliers_TH50_5179_S01 <- up_outliers_TH50_5179_S01 %>%
+  anti_join(other_samples_df2, by = "gene") %>%
+  rename(Sample2 = gene)
+unique_up_outliers_TH50_5179_S01 <- as.list(unique_up_outliers_TH50_5179_S01)
+
+# TH50_5280_S01
+up_outliers_TH50_5280_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5280_S01') %>%
+  select(gene)
+other_samples3 <- outlier_data %>%
+  filter(TH_id != 'TH50_5280_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df3 <- data.frame(gene = other_samples3)
+unique_up_outliers_TH50_5280_S01 <- up_outliers_TH50_5280_S01 %>%
+  anti_join(other_samples_df3, by = "gene") %>%
+  rename(Sample3 = gene)
+unique_up_outliers_TH50_5280_S01 <- as.list(unique_up_outliers_TH50_5280_S01)
+
+# TH50_5281_S01
+up_outliers_TH50_5281_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5281_S01') %>%
+  select(gene)
+other_samples4 <- outlier_data %>%
+  filter(TH_id != 'TH50_5281_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df4 <- data.frame(gene = other_samples4)
+unique_up_outliers_TH50_5281_S01 <- up_outliers_TH50_5281_S01 %>%
+  anti_join(other_samples_df4, by = "gene") %>%
+  rename(Sample4 = gene)
+unique_up_outliers_TH50_5281_S01 <- as.list(unique_up_outliers_TH50_5281_S01)
+
+# TH50_5282_S01
+up_outliers_TH50_5282_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5282_S01') %>%
+  select(gene)
+other_samples5 <- outlier_data %>%
+  filter(TH_id != 'TH50_5282_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df5 <- data.frame(gene = other_samples5)
+unique_up_outliers_TH50_5282_S01 <- up_outliers_TH50_5282_S01 %>%
+  anti_join(other_samples_df5, by = "gene") %>%
+  rename(Sample5 = gene)
+unique_up_outliers_TH50_5282_S01 <- as.list(unique_up_outliers_TH50_5282_S01)
+
+# TH50_5283_S01
+up_outliers_TH50_5283_S01 <- outlier_data %>%
+  filter(direction == 'up', TH_id == 'TH50_5283_S01') %>%
+  select(gene)
+other_samples6 <- outlier_data %>%
+  filter(TH_id != 'TH50_5283_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df6 <- data.frame(gene = other_samples6)
+unique_up_outliers_TH50_5283_S01 <- up_outliers_TH50_5283_S01 %>%
+  anti_join(other_samples_df6, by = "gene") %>%
+  rename(Sample6 = gene)
+unique_up_outliers_TH50_5283_S01 <- as.list(unique_up_outliers_TH50_5283_S01)
+
+library(purrr)
+library(stringr)
+
+# Combine the unique up outliers into a single dataframe
+combined_up_outliers <- unique(c(unique_up_outliers_TH50_5178_S01,
+ unique_up_outliers_TH50_5179_S01,
+ unique_up_outliers_TH50_5280_S01,
+ unique_up_outliers_TH50_5281_S01,
+ unique_up_outliers_TH50_5282_S01,
+ unique_up_outliers_TH50_5283_S01))
+
+combined_up_outliers_df <- data.frame(Outliers = I(combined_up_outliers))
+
+# Convert each row of the data frame to a character string
+combined_up_outliers_text <- apply(combined_up_outliers_df, 1, function(x) paste(x, collapse = ", "))
+
+# Write the character vector to a text file
+writeLines(combined_up_outliers_text, "Unique Up Outliers Samples 1-6.txt")
+
+
+
+# Create a data frame with the values and corresponding labels
+combined_up_outlier_data <- data.frame(
+  Sample = c("Sample 1", "Sample 2", "Sample 3", "Sample 4", "Sample 5", "Sample 6"),
+  Value = c(25, 59, 117, 35, 10, 26)
+)
+
+# Create the histogram
+combined_up_outlier_histogram <- ggplot(combined_up_outlier_data, aes(x = Sample, y = Value)) +
+  geom_bar(stat = "identity", fill = "blue", color = "white") +
+  labs(
+    title = "Unique Up Outliers",
+    x = "Sample",
+    y = "Count"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 26, face = "bold", hjust = 1, angle = 45),
+    axis.text.y = element_text(size = 26, face = "bold"),
+    axis.title.x = element_text(size = 32, face = "bold"),
+    axis.title.y = element_text(size = 26, face = "bold"),
+    plot.title = element_text(size = 36, face = "bold")
+  )
+```
+
+
+```{r}
+ggsave("Unique Up Outliers.png", combined_up_outlier_histogram, width = 10, height = 10)
+
+# Filter for OMIM Gene lists for "muscle disease" and "muscle disorder"
+# Provided list of gene names
+OMIM_genes <- c("RMD1", "RMD2", "CAV3", "DMD", "ARVD1", "IBMPFD1", "CMYO2B", "MFM8", "FSHD1", "SGCD", "DYSF", "LMNA", "MYH11", "BCL2", "DA1A", "CMD1A", "CMYO7A", "LGMDD3", "LQT12", "MPDT", "MHS1", "GSD7", "MMIHS2", "MMIHS5", "LGMD427", "IMD93", "CMD2G", "CMYO2C", "CMYO20", "CMH26", "MDCDC", "LVNC8", "CMD1L", "CGL4", "CDSP", "CTRCT46", "EBS5B", "FRDA", "BROD", "DA2B1", "MRUPAV", "MDCMC", "LGMDD1", "LGMDR5", "CMYO4A", "NEM2", "SMA4", "CDCBM14A", "SANDO", "ATFB3", "MDC1A", "MPD7", "CMD3B", "VSCM1", "TAM1", "DM1", "CNMX", "MEAX", "SMAX1", "TMD", "CMD1B", "ARVD3", "HUMOP1", "ACTG2", "FLNC", "ACTA1", "APOE", "CHAT", "COL6A1", "SERPINA6", "CHKB", "MEGF10", "PLIN4", "TTN", "PYROXD1", "DES", "FBL", "SNTA1", "JAG2", "CAVIN1", "BNIP3", "CDC42BPA", "BAG3", "BECN1", "TRIP4", "FXN", "PRDM16", "SELENON", "SMPX", "ISG15", "LAMA2", "MB", "MYH7", "MYL1", "NOS1", "MTTA", "MTTP", "NLSDM", "CYMO19", "EDMD2", "UCMD1A", "BTHLM1A", "ANO5", "MFM2", "NEM6", "MPD3", "SCAR8", "MPD4", "CMYO10A", "TTPP1", "CMS25", "CMYO14", "AMC3", "CMYO16", "MPD6", "CMYO9B", "LGMDR26", "OPDM2", "CMYO17", "MFM10", "MFM11", "AMC6", "FSHD3", "FSHD4", "CMYO11", "MMCKR1", "CMYO15", "CMYO10B", "CMYO21", "CMYO22A", "CMYO22B", "NEM5B", "NEM5C", "OPDM2", "LCCS7", "CMS19", "MDRCMTT", "SHPM", "MPD5", "MFM7", "NEM8", "MDDGC14", "MPXPS", "MPXPS", "MPXPS", "NEM9", "CMS14", "VMCQA", "MHS5", "LGMDR7", "MFM9", "MMD1", "CFZS1", "CMYO7B", "NEM5A", "CMYO6", "RBMX1A", "WRWF", "MMCKR2", "MTMR14", "KEL", "TRAPPC11", "KCNE3", "MICU1")
+
+# Create a dataframe with a single column named "Gene"
+OMIM_genes_df <- data.frame(Gene = OMIM_genes)
+
+combined_up_outliers2 <- bind_rows(
+  Sample1 = unique_up_outliers_TH50_5178_S01,
+  Sample2 = unique_up_outliers_TH50_5179_S01,
+  Sample3 = unique_up_outliers_TH50_5280_S01,
+  Sample4 = unique_up_outliers_TH50_5281_S01,
+  Sample5 = unique_up_outliers_TH50_5282_S01,
+  Sample6 = unique_up_outliers_TH50_5283_S01
+)
+
+# Unnest the combined_up_outliers2 data frame
+combined_up_outliers2_long <- combined_up_outliers2 %>%
+  pivot_longer(cols = everything(),
+               names_to = "Sample",
+               values_to = "Gene")
+
+# Filter the unnested data frame based on OMIM genes
+filtered_up_outliers2_long <- combined_up_outliers2_long %>%
+  filter(Gene %in% OMIM_genes_df$Gene)
+
+# Pivot the filtered data back to wide format
+filtered_up_outliers_wide <- filtered_up_outliers2_long %>%
+  pivot_wider(names_from = Sample, values_from = Gene)
+
+print(filtered_up_outliers_wide)
+```
+
+
+### (Down Outliers)
+```{r}
+# Work off the following outlier data (includes up and down for all 6 samples)
+outlier_data
+
+# TH50_5178_S01
+down_outliers_TH50_5178_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5178_S01') %>%
+  select(gene)
+# Find genes not present in other samples
+other_samples7 <- outlier_data %>%
+  filter(TH_id != 'TH50_5178_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df7 <- data.frame(gene = other_samples7)
+# Identify unique up outliers in TH50_5178_S01
+unique_down_outliers_TH50_5178_S01 <- down_outliers_TH50_5178_S01 %>%
+  anti_join(other_samples_df7, by = "gene") %>%
+  rename(Sample1 = gene)
+# Output unique up outliers
+unique_down_outliers_TH50_5178_S01 <- as.list(unique_down_outliers_TH50_5178_S01)
+
+# TH50_5179_S01
+down_outliers_TH50_5179_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5179_S01') %>%
+  select(gene)
+other_samples8 <- outlier_data %>%
+  filter(TH_id != 'TH50_5179_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df8 <- data.frame(gene = other_samples8)
+unique_down_outliers_TH50_5179_S01 <- down_outliers_TH50_5179_S01 %>%
+  anti_join(other_samples_df8, by = "gene") %>%
+  rename(Sample2 = gene)
+unique_down_outliers_TH50_5179_S01 <- as.list(unique_down_outliers_TH50_5179_S01)
+
+# TH50_5280_S01
+down_outliers_TH50_5280_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5280_S01') %>%
+  select(gene)
+other_samples9 <- outlier_data %>%
+  filter(TH_id != 'TH50_5280_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df9 <- data.frame(gene = other_samples9)
+unique_down_outliers_TH50_5280_S01 <- down_outliers_TH50_5280_S01 %>%
+  anti_join(other_samples_df9, by = "gene") %>%
+  rename(Sample3 = gene)
+unique_down_outliers_TH50_5280_S01 <- as.list(unique_down_outliers_TH50_5280_S01)
+
+# TH50_5281_S01
+down_outliers_TH50_5281_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5281_S01') %>%
+  select(gene)
+other_samples10 <- outlier_data %>%
+  filter(TH_id != 'TH50_5281_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df10 <- data.frame(gene = other_samples10)
+unique_down_outliers_TH50_5281_S01 <- down_outliers_TH50_5281_S01 %>%
+  anti_join(other_samples_df10, by = "gene") %>%
+  rename(Sample4 = gene)
+unique_down_outliers_TH50_5281_S01 <- as.list(unique_down_outliers_TH50_5281_S01)
+
+# TH50_5282_S01
+down_outliers_TH50_5282_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5282_S01') %>%
+  select(gene)
+other_samples11 <- outlier_data %>%
+  filter(TH_id != 'TH50_5282_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df11 <- data.frame(gene = other_samples11)
+unique_down_outliers_TH50_5282_S01 <- down_outliers_TH50_5282_S01 %>%
+  anti_join(other_samples_df11, by = "gene") %>%
+  rename(Sample5 = gene)
+unique_down_outliers_TH50_5282_S01 <- as.list(unique_down_outliers_TH50_5282_S01)
+
+# TH50_5283_S01
+down_outliers_TH50_5283_S01 <- outlier_data %>%
+  filter(direction == 'down', TH_id == 'TH50_5283_S01') %>%
+  select(gene)
+other_samples12 <- outlier_data %>%
+  filter(TH_id != 'TH50_5283_S01') %>%
+  pull(gene) %>%
+  unique()
+other_samples_df12 <- data.frame(gene = other_samples12)
+unique_down_outliers_TH50_5283_S01 <- down_outliers_TH50_5283_S01 %>%
+  anti_join(other_samples_df12, by = "gene") %>%
+  rename(Sample6 = gene)
+unique_down_outliers_TH50_5283_S01 <- as.list(unique_down_outliers_TH50_5283_S01)
+
+# Combine the unique down outliers into a single dataframe
+combined_down_outliers <- map_dfr(c(unique_down_outliers_TH50_5178_S01,
+                                  unique_down_outliers_TH50_5179_S01,
+                                  unique_down_outliers_TH50_5280_S01,
+                                  unique_down_outliers_TH50_5281_S01,
+                                  unique_down_outliers_TH50_5282_S01,
+                                  unique_down_outliers_TH50_5283_S01),
+                                ~ data.frame(.col = .x), .id = "Sample") %>%
+  pivot_wider(names_from = "Sample", values_from = .col, values_fill = NA)
+
+
+combined_down_outliers_df <- data.frame(Outliers = I(combined_down_outliers))
+
+# Convert each row of the data frame to a character string
+combined_down_outliers_text <- apply(combined_down_outliers_df, 1, function(x) paste(x, collapse = ", "))
+
+# Write the character vector to a text file
+writeLines(combined_down_outliers_text, "Unique Down Outliers Samples 1-6.txt")
+
+
+
+
+
+
+
+
+# Create a data frame with the values and corresponding labels
+combined_down_outlier_data <- data.frame(
+  Sample = c("Sample 1", "Sample 2", "Sample 3", "Sample 4", "Sample 5", "Sample 6"),
+  Value = c(141, 7, 45, 82, 25, 34)
+)
+
+# Create the histogram
+combined_down_outlier_histogram <- ggplot(combined_down_outlier_data, aes(x = Sample, y = Value)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "white") +
+  labs(title = "Unique Down Outliers",
+       x = "Sample", y = "Count") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(size = 26, face = "bold", hjust = 1, angle = 45),
+        axis.text.y = element_text(size = 26, face = "bold"),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 26, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"))
+
+ggsave("Unique Down Outliers.png", combined_down_outlier_histogram, width = 10, height = 10)
+
+# Filter for OMIM Gene lists for "muscle disease" and "muscle disorder"
+# Provided list of gene names
+OMIM_genes <- c("RMD1", "RMD2", "CAV3", "DMD", "ARVD1", "IBMPFD1", "CMYO2B", "MFM8", "FSHD1", "SGCD", "DYSF", "LMNA", "MYH11", "BCL2", "DA1A", "CMD1A", "CMYO7A", "LGMDD3", "LQT12", "MPDT", "MHS1", "GSD7", "MMIHS2", "MMIHS5", "LGMD427", "IMD93", "CMD2G", "CMYO2C", "CMYO20", "CMH26", "MDCDC", "LVNC8", "CMD1L", "CGL4", "CDSP", "CTRCT46", "EBS5B", "FRDA", "BROD", "DA2B1", "MRUPAV", "MDCMC", "LGMDD1", "LGMDR5", "CMYO4A", "NEM2", "SMA4", "CDCBM14A", "SANDO", "ATFB3", "MDC1A", "MPD7", "CMD3B", "VSCM1", "TAM1", "DM1", "CNMX", "MEAX", "SMAX1", "TMD", "CMD1B", "ARVD3", "HUMOP1", "ACTG2", "FLNC", "ACTA1", "APOE", "CHAT", "COL6A1", "SERPINA6", "CHKB", "MEGF10", "PLIN4", "TTN", "PYROXD1", "DES", "FBL", "SNTA1", "JAG2", "CAVIN1", "BNIP3", "CDC42BPA", "BAG3", "BECN1", "TRIP4", "FXN", "PRDM16", "SELENON", "SMPX", "ISG15", "LAMA2", "MB", "MYH7", "MYL1", "NOS1", "MTTA", "MTTP", "NLSDM", "CYMO19", "EDMD2", "UCMD1A", "BTHLM1A", "ANO5", "MFM2", "NEM6", "MPD3", "SCAR8", "MPD4", "CMYO10A", "TTPP1", "CMS25", "CMYO14", "AMC3", "CMYO16", "MPD6", "CMYO9B", "LGMDR26", "OPDM2", "CMYO17", "MFM10", "MFM11", "AMC6", "FSHD3", "FSHD4", "CMYO11", "MMCKR1", "CMYO15", "CMYO10B", "CMYO21", "CMYO22A", "CMYO22B", "NEM5B", "NEM5C", "OPDM2", "LCCS7", "CMS19", "MDRCMTT", "SHPM", "MPD5", "MFM7", "NEM8", "MDDGC14", "MPXPS", "MPXPS", "MPXPS", "NEM9", "CMS14", "VMCQA", "MHS5", "LGMDR7", "MFM9", "MMD1", "CFZS1", "CMYO7B", "NEM5A", "CMYO6", "RBMX1A", "WRWF", "MMCKR2", "MTMR14", "KEL", "TRAPPC11", "KCNE3", "MICU1")
+
+# Create a dataframe with a single column named "Gene"
+OMIM_genes_df <- data.frame(Gene = OMIM_genes)
+
+combined_down_outliers2 <- bind_rows(
+  Sample1 = unique_down_outliers_TH50_5178_S01,
+  Sample2 = unique_down_outliers_TH50_5179_S01,
+  Sample3 = unique_down_outliers_TH50_5280_S01,
+  Sample4 = unique_down_outliers_TH50_5281_S01,
+  Sample5 = unique_down_outliers_TH50_5282_S01,
+  Sample6 = unique_down_outliers_TH50_5283_S01
+)
+
+# Unnest the combined_down_outliers2 data frame
+combined_down_outliers2_long <- combined_down_outliers2 %>%
+  pivot_longer(cols = everything(),
+               names_to = "Sample",
+               values_to = "Gene")
+
+# Filter the unnested data frame based on OMIM genes
+filtered_down_outliers2_long <- combined_down_outliers2_long %>%
+  filter(Gene %in% OMIM_genes_df$Gene)
+
+# Pivot the filtered data back to wide format
+filtered_down_outliers_wide <- filtered_down_outliers2_long %>%
+  pivot_wider(names_from = Sample, values_from = Gene)
+
+print(filtered_down_outliers_wide)
+```
+#### OMIM Filtered Gene Table
+```{r}
+library(tibble)
+
+# Create a tibble
+OMIM_filtered_outlier_table <- tibble(
+  `Sample` = c("Sample 2", "Sample 3", "Sample 4"),
+  `Gene Symbol` = c("NOS1", "APOE", "CHKB"),
+  `Gene Name` = c("Nitric Oxide Synthase 1", "Apolipoprotein E", "Choline Kinase, Beta"),
+  `Direction of Outlier` = c("Up", "Up", "Down")
+)
+
+# Style
+kable(OMIM_filtered_outlier_table, 
+      caption = "<span style='font-weight: bold; color: black;'>Outliers Filtered for Known Muscle Disease-Related Genes</span>",
+      booktabs = TRUE) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed"), full_width = F) %>%
+  column_spec(1:4, width = "10em")
+```
+
+
+## Enriched Pathway Data
+
+#### (Up Outliers)
+
+```{r up EP heat map}
+
+# Input up outlier enriched pathway data to enviro
+# TH50_5178_S01
+up_outliers_78 <- outlier_data %>%
+  filter(TH_id == "TH50_5178_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_78 <- up_outliers_78$gene
+up_gene_IDs_78 <- mapIds(org.Hs.eg.db, keys = up_gene_names_78, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_78 <- enrichPathway(up_gene_IDs_78, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_78_results <- as.data.frame(up_enrich_pathway_78)
+
+# TH50_5179_S01
+up_outliers_79 <- outlier_data %>%
+  filter(TH_id == "TH50_5179_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_79 <- up_outliers_79$gene
+up_gene_IDs_79 <- mapIds(org.Hs.eg.db, keys = up_gene_names_79, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_79 <- enrichPathway(up_gene_IDs_79, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_79_results <- as.data.frame(up_enrich_pathway_79)
+
+# TH50_5280_S01
+up_outliers_80 <- outlier_data %>%
+  filter(TH_id == "TH50_5280_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_80 <- up_outliers_80$gene
+up_gene_IDs_80 <- mapIds(org.Hs.eg.db, keys = up_gene_names_80, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_80 <- enrichPathway(up_gene_IDs_80, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_80_results <- as.data.frame(up_enrich_pathway_80)
+
+# TH50_5281_S01
+up_outliers_81 <- outlier_data %>%
+  filter(TH_id == "TH50_5281_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_81 <- up_outliers_81$gene
+up_gene_IDs_81 <- mapIds(org.Hs.eg.db, keys = up_gene_names_81, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_81 <- enrichPathway(up_gene_IDs_81, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_81_results <- as.data.frame(up_enrich_pathway_81)
+
+# TH50_5282_S01
+up_outliers_82 <- outlier_data %>%
+  filter(TH_id == "TH50_5282_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_82 <- up_outliers_82$gene
+up_gene_IDs_82 <- mapIds(org.Hs.eg.db, keys = up_gene_names_82, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_82 <- enrichPathway(up_gene_IDs_82, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_82_results <- as.data.frame(up_enrich_pathway_82)
+
+# TH50_5283_S01
+up_outliers_83 <- outlier_data %>%
+  filter(TH_id == "TH50_5283_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_83 <- up_outliers_83$gene
+up_gene_IDs_83 <- mapIds(org.Hs.eg.db, keys = up_gene_names_83, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_83 <- enrichPathway(up_gene_IDs_83, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_83_results <- as.data.frame(up_enrich_pathway_83)
+
+# Add TH_ID columns to individual dfs
+up_ep_78_results <- up_ep_78_results %>%
+  mutate(TH_ID = "TH50_5178_S01")
+up_ep_79_results <- up_ep_79_results %>%
+  mutate(TH_ID = "TH50_5179_S01")
+up_ep_80_results <- up_ep_80_results %>%
+  mutate(TH_ID = "TH50_5280_S01")
+up_ep_81_results <- up_ep_81_results %>%
+  mutate(TH_ID = "TH50_5281_S01")
+up_ep_82_results <- up_ep_82_results %>%
+  mutate(TH_ID = "TH50_5282_S01")
+up_ep_83_results <- up_ep_83_results %>%
+  mutate(TH_ID = "TH50_5283_S01")
+
+# Create a placeholder dataframe with zero presence
+empty_df <- data.frame(ID = NA, Description = NA, TH_ID = "TH50_5281_S01", Presence = 0)
+
+# Merge all 6 up enriched pathway results, including empty dataframes
+merge_up_pathways <- bind_rows(up_ep_78_results, up_ep_79_results, up_ep_80_results, empty_df, up_ep_82_results, up_ep_83_results) %>%
+  select(Description, Count, TH_ID, Presence, )
+
+# Get all unique sample IDs (including "TH50_5281_S01")
+all_sample_ids <- unique(c(merge_up_pathways$TH_ID, "TH50_5281_S01"))  # Explicitly include the desired sample ID
+
+# Filter for enriched pathways present in > 1 sample
+unique_up_pathways <- merge_up_pathways %>%
+  dplyr::group_by(Description) %>%
+  filter(Count > 1) %>%  # Filter for pathways present in > 1 sample
+  summarize(
+    Count = n(),
+    TH_ID = paste(TH_ID, collapse = ", ")
+  ) %>%
+  mutate(TH_IDs = dplyr::coalesce(TH_ID, "")) %>%  # Replace NA with empty string
+  unnest(TH_IDs) %>%
+  mutate(Presence = 1) %>%
+  select(Description, TH_ID, Presence)
+
+conflicts_prefer(dplyr::rename)
+
+# Pivot the data
+pivot_up_pathways <- unique_up_pathways %>%
+  mutate(TH_ID = str_split(TH_ID, ",\\s+")) %>%
+  unnest(TH_ID) %>%
+  pivot_wider(names_from = TH_ID, values_from = Presence, values_fill = 0) %>%
+  mutate(new_column = 0) %>%
+  rename(TH50_5281_S01 = new_column) %>%
+  select(Description, TH50_5178_S01, TH50_5179_S01, TH50_5280_S01, TH50_5281_S01, TH50_5282_S01, TH50_5283_S01)
+
+# Melt the data to long format
+melt_up_pathways <- melt(pivot_up_pathways, id.vars = "Description")
+
+# Create the heatmap
+up_pathway_heatmap <- ggplot(melt_up_pathways, aes(x = Description, y = factor(variable, labels = 1:6), fill = factor(value))) +
+  geom_tile() +
+  scale_fill_manual(values = c("1" = "blue", "0" = "white"), name = "Presence") +
+  labs(x = "Enriched Pathway", y = "Sample", fill = "Presence") +
+  ggtitle("Up Outlier Genes\nEnriched Pathways (>1\nPatient Sample)") +
+  theme_minimal() +
+  coord_flip() + # For better readability, flip the axes
+  theme(axis.text.x = element_text(size = 28, face = "bold", hjust = 1, vjust = 1),  # Adjust vjust for vertical alignment
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 28, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"),
+        legend.text = element_text(size = 28, face = "bold"),
+        legend.title = element_text(size = 36, face = "bold"),
+        legend.key = element_rect(color = "black", fill = NA))
+
+# Save plot
+ggsave("Up Outlier Enriched Pathway Heat Map.png", up_pathway_heatmap)
+```
+
+#### (Down Outliers)
+
+```{r down EP heat map}
+
+# Input down outlier enriched pathway data to enviro
+# TH50_5178_S01
+down_outliers_78 <- outlier_data %>%
+  filter(TH_id == "TH50_5178_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_78 <- down_outliers_78$gene
+down_gene_IDs_78 <- mapIds(org.Hs.eg.db, keys = down_gene_names_78, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_78 <- enrichPathway(down_gene_IDs_78, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_78_results <- as.data.frame(down_enrich_pathway_78)
+
+# TH50_5179_S01
+down_outliers_79 <- outlier_data %>%
+  filter(TH_id == "TH50_5179_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_79 <- down_outliers_79$gene
+down_gene_IDs_79 <- mapIds(org.Hs.eg.db, keys = down_gene_names_79, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_79 <- enrichPathway(down_gene_IDs_79, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_79_results <- as.data.frame(down_enrich_pathway_79)
+
+# TH50_5280_S01
+down_outliers_80 <- outlier_data %>%
+  filter(TH_id == "TH50_5280_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_80 <- down_outliers_80$gene
+down_gene_IDs_80 <- mapIds(org.Hs.eg.db, keys = down_gene_names_80, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_80 <- enrichPathway(down_gene_IDs_80, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_80_results <- as.data.frame(down_enrich_pathway_80)
+
+# TH50_5281_S01
+down_outliers_81 <- outlier_data %>%
+  filter(TH_id == "TH50_5281_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_81 <- down_outliers_81$gene
+down_gene_IDs_81 <- mapIds(org.Hs.eg.db, keys = down_gene_names_81, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_81 <- enrichPathway(down_gene_IDs_81, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_81_results <- as.data.frame(down_enrich_pathway_81)
+
+# TH50_5282_S01
+down_outliers_82 <- outlier_data %>%
+  filter(TH_id == "TH50_5282_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_82 <- down_outliers_82$gene
+down_gene_IDs_82 <- mapIds(org.Hs.eg.db, keys = down_gene_names_82, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_82 <- enrichPathway(down_gene_IDs_82, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_82_results <- as.data.frame(down_enrich_pathway_82)
+
+# TH50_5283_S01
+down_outliers_83 <- outlier_data %>%
+  filter(TH_id == "TH50_5283_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_83 <- down_outliers_83$gene
+down_gene_IDs_83 <- mapIds(org.Hs.eg.db, keys = down_gene_names_83, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_83 <- enrichPathway(down_gene_IDs_83, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_83_results <- as.data.frame(down_enrich_pathway_83)
+
+# Add TH_ID columns to individual dfs
+down_ep_78_results <- down_ep_78_results %>%
+  mutate(TH_ID = "TH50_5178_S01")
+down_ep_79_results <- down_ep_79_results %>%
+  mutate(TH_ID = "TH50_5179_S01")
+down_ep_80_results <- down_ep_80_results %>%
+  mutate(TH_ID = "TH50_5280_S01")
+down_ep_81_results <- down_ep_81_results %>%
+  mutate(TH_ID = "TH50_5281_S01")
+down_ep_82_results <- down_ep_82_results %>%
+  mutate(TH_ID = "TH50_5282_S01")
+down_ep_83_results <- down_ep_83_results %>%
+  mutate(TH_ID = "TH50_5283_S01")
+
+# Merge all 6 down enriched pathway results
+merge_down_pathways <- bind_rows(down_ep_78_results, down_ep_79_results, down_ep_80_results, down_ep_81_results, down_ep_82_results, down_ep_83_results) %>%
+  select(Description, TH_ID)
+
+# Look for duplicates in rows (I see one manually)
+dup_down_pathways <- merge_down_pathways %>%
+  duplicated(subset = c("Description", "TH_IDs"))
+
+# Remove duplicate rows
+no_dup_down_pathways <- merge_down_pathways %>%
+  filter(!dup_down_pathways)
+
+# Filter for enriched pathways of down outliers across >1 sample
+unique_down_pathways <- no_dup_down_pathways %>%
+  dplyr::group_by(Description) %>%
+  summarize(
+    Count = n(),
+    TH_IDs = paste(TH_ID, collapse = ", ")
+  ) %>%
+  filter(Count > 1) %>%
+  arrange(desc(Count)) %>%
+  select(Description,TH_IDs)
+
+# Extract unique TH_IDs
+unique_down_th_ids2 <- str_split(unique_down_pathways$TH_IDs, ",\\s+") %>%
+  unlist() %>%
+  unique()
+
+# Create new columns for each unique TH_ID
+pivot_down_pathways <- unique_down_pathways %>%
+  mutate(TH_IDs = str_split(TH_IDs, ",\\s+")) %>%
+  unnest(TH_IDs) %>%
+  mutate(Presence = 1) %>%
+  pivot_wider(names_from = TH_IDs, values_from = Presence, values_fill = 0)
+  
+# Select only the desired columns
+pivot_down_pathways <- pivot_down_pathways %>%
+  select(Description, TH50_5178_S01, TH50_5179_S01, TH50_5280_S01, TH50_5281_S01, TH50_5282_S01, TH50_5283_S01)
+
+# Melt the data to long format
+melt_down_pathways <- melt(pivot_down_pathways, id.vars = "Description")
+
+# Create the heatmap
+down_pathway_heatmap <- ggplot(melt_down_pathways, aes(x = Description, y = factor(variable, labels = 1:6), fill = factor(value))) +
+  geom_tile() +
+  scale_fill_manual(values = c("1" = "skyblue", "0" = "white"), name = "Presence") + # Use scale_fill_manual for custom colors
+  labs(x = "Enriched Pathway", y = "Sample", fill = "Presence") +
+  ggtitle("Down Outlier Genes\nEnriched Pathways (>1\nPatient Sample)") +
+  theme_minimal() +
+  coord_flip() + # For better readability, flip the axes
+  theme(axis.text.x = element_text(size = 28, face = "bold", hjust = 1, vjust = 1),  # Adjust vjust for vertical alignment
+        axis.text.y = element_blank(),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 28, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"),
+        legend.text = element_text(size = 28, face = "bold"),
+        legend.title = element_text(size = 32, face = "bold"),
+        legend.key = element_rect(color = "black", fill = NA))
+
+# Save plot
+ggsave("Down Outlier Enriched Pathway Heat Map.png", down_pathway_heatmap)
+``` 
+
+## Unique Enriched Pathways
+### (Up outliers enriched pathways)
+```{r}
+
+# TH50_5178_S01
+up_outliers_78 <- outlier_data %>%
+  filter(TH_id == "TH50_5178_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_78 <- up_outliers_78$gene
+up_gene_IDs_78 <- mapIds(org.Hs.eg.db, keys = up_gene_names_78, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_78 <- enrichPathway(up_gene_IDs_78, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_78_results <- as.data.frame(up_enrich_pathway_78) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples13 <- outlier_data %>%
+  filter(TH_id != 'TH50_5178_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df13 <- data.frame(gene = other_samples13) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique up outliers in TH50_5178_S01
+unique_up_pathways_TH50_5178_S01 <- up_ep_78_results %>%
+  anti_join(other_samples_df13, by = "ID") %>%
+  rename(Sample1 = ID)
+
+# TH50_5179_S01
+up_outliers_79 <- outlier_data %>%
+  filter(TH_id == "TH50_5179_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_79 <- up_outliers_79$gene
+up_gene_IDs_79 <- mapIds(org.Hs.eg.db, keys = up_gene_names_79, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_79 <- enrichPathway(up_gene_IDs_79, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_79_results <- as.data.frame(up_enrich_pathway_79) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples14 <- outlier_data %>%
+  filter(TH_id != 'TH50_5179_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df14 <- data.frame(gene = other_samples14) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique up outliers in TH50_5179_S01
+unique_up_pathways_TH50_5179_S01 <- up_ep_79_results %>%
+  anti_join(other_samples_df14, by = "ID") %>%
+  rename(Sample2 = ID)
+
+# TH50_5280_S01
+up_outliers_80 <- outlier_data %>%
+  filter(TH_id == "TH50_5280_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_80 <- up_outliers_80$gene
+up_gene_IDs_80 <- mapIds(org.Hs.eg.db, keys = up_gene_names_80, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_80 <- enrichPathway(up_gene_IDs_80, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_80_results <- as.data.frame(up_enrich_pathway_80) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples15 <- outlier_data %>%
+  filter(TH_id != 'TH50_5280_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df15 <- data.frame(gene = other_samples15) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique up outliers in TH50_5280_S01
+unique_up_pathways_TH50_5280_S01 <- up_ep_80_results %>%
+  anti_join(other_samples_df15, by = "ID") %>%
+  rename(Sample3 = ID)
+
+# TH50_5281_S01
+up_outliers_81 <- outlier_data %>%
+  filter(TH_id == "TH50_5281_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_81 <- up_outliers_81$gene
+up_gene_IDs_81 <- mapIds(org.Hs.eg.db, keys = up_gene_names_81, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_81 <- enrichPathway(up_gene_IDs_81, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_81_results <- as.data.frame(up_enrich_pathway_81) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples16 <- outlier_data %>%
+  filter(TH_id != 'TH50_5281_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df16 <- data.frame(gene = other_samples16) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique up outliers in TH50_5281_S01
+unique_up_pathways_TH50_5281_S01 <- up_ep_81_results %>%
+  anti_join(other_samples_df16, by = "ID") %>%
+  rename(Sample4 = ID)
+
+# TH50_5282_S01
+up_outliers_82 <- outlier_data %>%
+  filter(TH_id == "TH50_5282_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_82 <- up_outliers_82$gene
+up_gene_IDs_82 <- mapIds(org.Hs.eg.db, keys = up_gene_names_82, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_82 <- enrichPathway(up_gene_IDs_82, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_82_results <- as.data.frame(up_enrich_pathway_82) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples17 <- outlier_data %>%
+  filter(TH_id != 'TH50_5282_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df17 <- data.frame(gene = other_samples17) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique up outliers in TH50_5282_S01
+unique_up_pathways_TH50_5282_S01 <- up_ep_82_results %>%
+  anti_join(other_samples_df17, by = "ID") %>%
+  rename(Sample5 = ID)
+
+# TH50_5283_S01
+up_outliers_83 <- outlier_data %>%
+  filter(TH_id == "TH50_5283_S01", direction == "up") %>%
+  select(gene)
+up_gene_names_83 <- up_outliers_83$gene
+up_gene_IDs_83 <- mapIds(org.Hs.eg.db, keys = up_gene_names_83, column = "ENTREZID", keytype = "SYMBOL")
+up_enrich_pathway_83 <- enrichPathway(up_gene_IDs_83, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+up_ep_83_results <- as.data.frame(up_enrich_pathway_83) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples18 <- outlier_data %>%
+  filter(TH_id != 'TH50_5283_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df18 <- data.frame(gene = other_samples18) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique up outliers in TH50_5283_S01
+unique_up_pathways_TH50_5283_S01 <- up_ep_83_results %>%
+  anti_join(other_samples_df18, by = "ID") %>%
+  rename(Sample6 = ID)
+
+library(purrr)
+
+# Combine the unique up outliers into a single dataframe
+combined_up_pathways <- map_dfr(c(unique_up_pathways_TH50_5178_S01,
+                                  unique_up_pathways_TH50_5179_S01,
+                                  unique_up_pathways_TH50_5280_S01,
+                                  unique_up_pathways_TH50_5281_S01,
+                                  unique_up_pathways_TH50_5282_S01,
+                                  unique_up_pathways_TH50_5283_S01),
+                                ~ data.frame(.col = .x), .id = "Sample") %>%
+  pivot_wider(names_from = "Sample", values_from = .col, values_fill = NA)
+
+# Create a data frame with the values and corresponding labels
+combined_up_pathway_data <- data.frame(
+  Sample = c("Sample 1", "Sample 2", "Sample 3", "Sample 4", "Sample 5", "Sample 6"),
+  Value = c(2, 17, 88, 0, 45, 36)
+)
+
+# Create the histogram
+combined_up_pathway_histogram <- ggplot(combined_up_pathway_data, aes(x = Sample, y = Value)) +
+  geom_bar(stat = "identity", fill = "blue", color = "white") +
+  labs(title = "Unique Up Outlier\nEnriched Pathways",
+       x = "Sample", y = "Count") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(size = 20, face = "bold", hjust = 1, angle = 45),
+        axis.text.y = element_text(size = 20, face = "bold"),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 26, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"))
+
+ggsave("Unique Up Outlier Enriched Pathways.png", combined_up_pathway_histogram, width = 10, height = 10)
+```
+
+
+## Unique Enriched Pathways
+### (Down outliers enriched pathways)
+```{r}
+# TH50_5178_S01
+down_outliers_78 <- outlier_data %>%
+  filter(TH_id == "TH50_5178_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_78 <- down_outliers_78$gene
+down_gene_IDs_78 <- mapIds(org.Hs.eg.db, keys = down_gene_names_78, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_78 <- enrichPathway(down_gene_IDs_78, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_78_results <- as.data.frame(down_enrich_pathway_78) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples19 <- outlier_data %>%
+  filter(TH_id != 'TH50_5178_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df19 <- data.frame(gene = other_samples19) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique down outliers in TH50_5178_S01
+unique_down_pathways_TH50_5178_S01 <- down_ep_78_results %>%
+  anti_join(other_samples_df19, by = "ID") %>%
+  rename(Sample1 = ID)
+
+# TH50_5179_S01
+down_outliers_79 <- outlier_data %>%
+  filter(TH_id == "TH50_5179_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_79 <- down_outliers_79$gene
+down_gene_IDs_79 <- mapIds(org.Hs.eg.db, keys = down_gene_names_79, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_79 <- enrichPathway(down_gene_IDs_79, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_79_results <- as.data.frame(down_enrich_pathway_79) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples20 <- outlier_data %>%
+  filter(TH_id != 'TH50_5179_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df20 <- data.frame(gene = other_samples20) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique down outliers in TH50_5179_S01
+unique_down_pathways_TH50_5179_S01 <- down_ep_79_results %>%
+  anti_join(other_samples_df20, by = "ID") %>%
+  rename(Sample2 = ID)
+
+# TH50_5280_S01
+down_outliers_80 <- outlier_data %>%
+  filter(TH_id == "TH50_5280_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_80 <- down_outliers_80$gene
+down_gene_IDs_80 <- mapIds(org.Hs.eg.db, keys = down_gene_names_80, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_80 <- enrichPathway(down_gene_IDs_80, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_80_results <- as.data.frame(down_enrich_pathway_80) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples21 <- outlier_data %>%
+  filter(TH_id != 'TH50_5280_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df21 <- data.frame(gene = other_samples21) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique down outliers in TH50_5280_S01
+unique_down_pathways_TH50_5280_S01 <- down_ep_80_results %>%
+  anti_join(other_samples_df21, by = "ID") %>%
+  rename(Sample3 = ID)
+
+# TH50_5281_S01
+down_outliers_81 <- outlier_data %>%
+  filter(TH_id == "TH50_5281_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_81 <- down_outliers_81$gene
+down_gene_IDs_81 <- mapIds(org.Hs.eg.db, keys = down_gene_names_81, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_81 <- enrichPathway(down_gene_IDs_81, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_81_results <- as.data.frame(down_enrich_pathway_81) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples22 <- outlier_data %>%
+  filter(TH_id != 'TH50_5281_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df22 <- data.frame(gene = other_samples22) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique down outliers in TH50_5281_S01
+unique_down_pathways_TH50_5281_S01 <- down_ep_81_results %>%
+  anti_join(other_samples_df22, by = "ID") %>%
+  rename(Sample4 = ID)
+
+# TH50_5282_S01
+down_outliers_82 <- outlier_data %>%
+  filter(TH_id == "TH50_5282_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_82 <- down_outliers_82$gene
+down_gene_IDs_82 <- mapIds(org.Hs.eg.db, keys = down_gene_names_82, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_82 <- enrichPathway(down_gene_IDs_82, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_82_results <- as.data.frame(down_enrich_pathway_82) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples23 <- outlier_data %>%
+  filter(TH_id != 'TH50_5282_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df23 <- data.frame(gene = other_samples23) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique down outliers in TH50_5282_S01
+unique_down_pathways_TH50_5282_S01 <- down_ep_82_results %>%
+  anti_join(other_samples_df23, by = "ID") %>%
+  rename(Sample5 = ID)
+
+# TH50_5283_S01
+down_outliers_83 <- outlier_data %>%
+  filter(TH_id == "TH50_5283_S01", direction == "down") %>%
+  select(gene)
+down_gene_names_83 <- down_outliers_83$gene
+down_gene_IDs_83 <- mapIds(org.Hs.eg.db, keys = down_gene_names_83, column = "ENTREZID", keytype = "SYMBOL")
+down_enrich_pathway_83 <- enrichPathway(down_gene_IDs_83, organism = "human", pvalueCutoff = 0.05, readable = TRUE)
+down_ep_83_results <- as.data.frame(down_enrich_pathway_83) %>%
+  select(ID)
+# Find genes not present in other samples
+other_samples24 <- outlier_data %>%
+  filter(TH_id != 'TH50_5283_S01') %>%
+  pull(gene) %>%
+  unique()
+# Convert to dataframe to match data type
+other_samples_df24 <- data.frame(gene = other_samples24) %>%
+  mutate(ID = gene) %>%
+  select(-gene)
+# Identify unique down outliers in TH50_5283_S01
+unique_down_pathways_TH50_5283_S01 <- up_ep_83_results %>%
+  anti_join(other_samples_df24, by = "ID") %>%
+  rename(Sample6 = ID)
+
+library(purrr)
+
+# Combine the unique up outliers into a single dataframe
+combined_down_pathways <- map_dfr(c(unique_down_pathways_TH50_5178_S01,
+                                  unique_down_pathways_TH50_5179_S01,
+                                  unique_down_pathways_TH50_5280_S01,
+                                  unique_down_pathways_TH50_5281_S01,
+                                  unique_down_pathways_TH50_5282_S01,
+                                  unique_down_pathways_TH50_5283_S01),
+                                ~ data.frame(.col = .x), .id = "Sample") %>%
+  pivot_wider(names_from = "Sample", values_from = .col, values_fill = NA)
+
+# Create a data frame with the values and corresponding labels
+combined_down_pathway_data <- data.frame(
+  Sample = c("Sample 1", "Sample 2", "Sample 3", "Sample 4", "Sample 5", "Sample 6"),
+  Value = c(51, 57, 59, 50, 54, 36)
+)
+
+# Create the histogram
+combined_down_pathway_histogram <- ggplot(combined_down_pathway_data, aes(x = Sample, y = Value)) +
+  geom_bar(stat = "identity", fill = "skyblue", color = "white") +
+  labs(title = "Unique Down Outlier\nEnriched Pathways",
+       x = "Sample", y = "Count") +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(size = 20, face = "bold", hjust = 1, angle = 45),
+        axis.text.y = element_text(size = 20, face = "bold"),
+        axis.title.x = element_text(size = 32, face = "bold"),
+        axis.title.y = element_text(size = 26, face = "bold"),
+        plot.title = element_text(size = 36, face = "bold"))
+
+ggsave("Unique Down Outlier Enriched Pathways.png", combined_down_pathway_histogram, width = 10, height = 10)
+```
