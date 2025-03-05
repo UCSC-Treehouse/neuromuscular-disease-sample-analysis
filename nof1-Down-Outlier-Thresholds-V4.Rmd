@@ -1,0 +1,615 @@
+---
+title: "nof1 disease down outlier thresholds"
+author: "Kaylee Delgado"
+date: "`r Sys.Date()`"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+# Setup
+
+## Set Up Library Packages
+```{r setup}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+library(dplyr)
+library(readr)
+library(tidyr)
+library(tidyverse)
+library(stringr)
+library(conflicted)
+library(kableExtra)
+library(jsonlite)
+library(knitr)
+
+conflicts_prefer(dplyr::select)
+conflicts_prefer(dplyr::filter)
+conflicts_prefer(dplyr::intersect)
+```
+
+## Read json file with down outlier thresholds
+```{r input json}
+
+# Construct the file path.  This is important for portability!
+json_file3.0 <- file.path(getwd(), "3.json")
+
+# Read the JSON data
+json_data3.0 <- fromJSON(json_file3.0)
+```
+
+
+## Input Down Outlier Threshold Data
+```{r input down outlier threshold data}
+
+# Extract down outlier nof1 genes from 3json file (lets call, data set c)
+threshold_down_outlier_genes_json <- json_data3.0$nof1_disease_thresholds$low
+
+# Create tibble with down outlier gene name and threshold value
+threshold_down_outlier_genes_df <- tibble(gene=names(threshold_down_outlier_genes_json),
+       threshold=unlist(threshold_down_outlier_genes_json))
+
+# Style kable table 
+kable(threshold_down_outlier_genes_df) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+```
+
+
+# Down Outliers Samples 1-6: Gene, Expression, and Threshold
+
+## Create Down Outlier Gene tibble for Sample 1, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 1}
+
+# 1. Extract only down outlier data from nof1 outlier results for sample 1 (lets call, data set A) (from "Sample-1-to-6-nof1-outlier.rmd)
+nof1_down_data_1 <- read_tsv("Sample 1-6 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5178_S01") %>% 
+  filter(!grepl("^RP", gene)) # filter out genes starting with "RP"
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Extract expression data from a JSON file 4.0
+json_file4.0_1 <- file.path(getwd(), "TH50_5178_S01.4.0.json")
+
+json_data4.0_1 <- fromJSON(json_file4.0_1)
+
+down_outlier_expression_df_1 <- tibble(gene=names(json_data4.0_1$outlier_results$sample), expression=unlist(json_data4.0_1$outlier_results$sample))
+
+print(down_outlier_expression_df_1)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_1 <- inner_join(nof1_down_data_1, down_outlier_expression_df_1, by = "gene")
+
+# 4. Select columns 
+down_final_data_1 <- down_merged_data_1 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_1)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_1 <- inner_join(down_final_data_1, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_1) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_1, "Sample-1-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+```
+
+
+## Create Down Outlier Gene tibble for Sample 2, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 2}
+
+# 1. Repeat step #1 for sample 2, changing TH_id
+nof1_down_data_2 <- read_tsv("Sample 1-6 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5179_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_2 <- file.path(getwd(), "TH50_5179_S01.4.0.json")
+
+json_data4.0_2 <- fromJSON(json_file4.0_2)
+
+down_outlier_expression_df_2 <- tibble(gene=names(json_data4.0_2$outlier_results$sample), expression=unlist(json_data4.0_2$outlier_results$sample))
+
+print(down_outlier_expression_df_2)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_2 <- inner_join(nof1_down_data_2, down_outlier_expression_df_2, by = "gene")
+
+# 4. Select columns 
+down_final_data_2 <- down_merged_data_2 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_2)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_2 <- inner_join(down_final_data_2, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_2) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_2, "Sample-2-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+```
+
+## Create Down Outlier Gene tibble for Sample 3, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 3}
+
+# 1. Repeat step #1 for sample 3, changing TH_id
+nof1_down_data_3 <- read_tsv("Sample 1-6 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5280_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_3 <- file.path(getwd(), "TH50_5280_S01.4.0.json")
+
+json_data4.0_3 <- fromJSON(json_file4.0_3)
+
+down_outlier_expression_df_3 <- tibble(gene=names(json_data4.0_3$outlier_results$sample), expression=unlist(json_data4.0_3$outlier_results$sample))
+
+print(down_outlier_expression_df_3)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_3 <- inner_join(nof1_down_data_3, down_outlier_expression_df_3, by = "gene")
+
+# 4. Select columns 
+down_final_data_3 <- down_merged_data_3 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_3)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_3 <- inner_join(down_final_data_3, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_3) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_3, "Sample-3-Down-Outliers-RP-filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Create Down Outlier Gene tibble for Sample 4, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 4}
+
+# 1. Repeat step #1 for sample 4, changing TH_id
+nof1_down_data_4 <- read_tsv("Sample 1-6 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5281_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_4 <- file.path(getwd(), "TH50_5281_S01.4.0.json")
+
+json_data4.0_4 <- fromJSON(json_file4.0_4)
+
+down_outlier_expression_df_4 <- tibble(gene=names(json_data4.0_4$outlier_results$sample), expression=unlist(json_data4.0_4$outlier_results$sample))
+
+print(down_outlier_expression_df_4)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_4 <- inner_join(nof1_down_data_4, down_outlier_expression_df_4, by = "gene")
+
+# 4. Select columns 
+down_final_data_4 <- down_merged_data_4 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_4)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_4 <- inner_join(down_final_data_4, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_4) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_4, "Sample-4-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Create Down Outlier Gene tibble for Sample 5, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 5}
+
+# 1. Repeat step #1 for sample 5, changing TH_id
+nof1_down_data_5 <- read_tsv("Sample 1-6 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5282_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_5 <- file.path(getwd(), "TH50_5282_S01.4.0.json")
+
+json_data4.0_5 <- fromJSON(json_file4.0_5)
+
+down_outlier_expression_df_5 <- tibble(gene=names(json_data4.0_5$outlier_results$sample), expression=unlist(json_data4.0_5$outlier_results$sample))
+
+print(down_outlier_expression_df_5)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_5 <- inner_join(nof1_down_data_5, down_outlier_expression_df_5, by = "gene")
+
+# 4. Select columns 
+down_final_data_5 <- down_merged_data_5 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_5)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_5 <- inner_join(down_final_data_5, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_5) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_5, "Sample-5-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Create Down Outlier Gene tibble for Sample 6, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 6}
+
+# 1. Repeat step #1 for sample 6, changing TH_id
+nof1_down_data_6 <- read_tsv("Sample 1-6 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5283_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_6 <- file.path(getwd(), "TH50_5283_S01.4.0.json")
+
+json_data4.0_6 <- fromJSON(json_file4.0_6)
+
+down_outlier_expression_df_6 <- tibble(gene=names(json_data4.0_6$outlier_results$sample), expression=unlist(json_data4.0_6$outlier_results$sample))
+
+print(down_outlier_expression_df_6)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_6 <- inner_join(nof1_down_data_6, down_outlier_expression_df_6, by = "gene")
+
+# 4. Select columns 
+down_final_data_6 <- down_merged_data_6 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_6)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_6 <- inner_join(down_final_data_6, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_6) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_6, "Sample-6-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Create Down Outlier Gene tibble for Sample 8, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 8}
+
+# 1. Repeat step #1 for sample 8, changing TH_id
+nof1_down_data_8 <- read_tsv("Sample 8-9, 12-15 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5181_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_8 <- file.path(getwd(), "TH50_5181_S01.4.0.json")
+
+json_data4.0_8 <- fromJSON(json_file4.0_8)
+
+down_outlier_expression_df_8 <- tibble(gene=names(json_data4.0_8$outlier_results$sample), expression=unlist(json_data4.0_8$outlier_results$sample))
+
+print(down_outlier_expression_df_8)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_8 <- inner_join(nof1_down_data_8, down_outlier_expression_df_8, by = "gene")
+
+# 4. Select columns 
+down_final_data_8 <- down_merged_data_8 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_8)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_8 <- inner_join(down_final_data_8, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_8) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_8, "Sample-8-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+
+## Create Down Outlier Gene tibble for Sample 9, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 9}
+
+# 1. Repeat step #1 for sample 9, changing TH_id
+nof1_down_data_9 <- read_tsv("Sample 8-9, 12-15 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5182_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_9 <- file.path(getwd(), "TH50_5182_S01.4.0.json")
+
+json_data4.0_9 <- fromJSON(json_file4.0_9)
+
+down_outlier_expression_df_9 <- tibble(gene=names(json_data4.0_9$outlier_results$sample), expression=unlist(json_data4.0_9$outlier_results$sample))
+
+print(down_outlier_expression_df_9)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_9 <- inner_join(nof1_down_data_9, down_outlier_expression_df_9, by = "gene")
+
+# 4. Select columns 
+down_final_data_9 <- down_merged_data_9 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_9)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_9 <- inner_join(down_final_data_9, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_9) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_9, "Sample-9-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Create Down Outlier Gene tibble for Sample 12, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 12}
+
+# 1. Repeat step #1 for sample 12, changing TH_id
+nof1_down_data_12 <- read_tsv("Sample 8-9, 12-15 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5183_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_12 <- file.path(getwd(), "TH50_5183_S01.4.0.json")
+
+json_data4.0_12 <- fromJSON(json_file4.0_12)
+
+down_outlier_expression_df_12 <- tibble(gene=names(json_data4.0_12$outlier_results$sample), expression=unlist(json_data4.0_12$outlier_results$sample))
+
+print(down_outlier_expression_df_12)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_12 <- inner_join(nof1_down_data_12, down_outlier_expression_df_12, by = "gene")
+
+# 4. Select columns 
+down_final_data_12 <- down_merged_data_12 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_12)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_12 <- inner_join(down_final_data_12, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_12) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_12, "Sample-12-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Create Down Outlier Gene tibble for Sample 13, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 13}
+
+# 1. Repeat step #1 for sample 13, changing TH_id
+nof1_down_data_13 <- read_tsv("Sample 8-9, 12-15 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5184_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_13 <- file.path(getwd(), "TH50_5184_S01.4.0.json")
+
+json_data4.0_13 <- fromJSON(json_file4.0_13)
+
+down_outlier_expression_df_13 <- tibble(gene=names(json_data4.0_13$outlier_results$sample), expression=unlist(json_data4.0_13$outlier_results$sample))
+
+print(down_outlier_expression_df_13)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_13 <- inner_join(nof1_down_data_13, down_outlier_expression_df_13, by = "gene")
+
+# 4. Select columns 
+down_final_data_13 <- down_merged_data_13 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_13)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_13 <- inner_join(down_final_data_13, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_13) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_13, "Sample-13-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Create Down Outlier Gene tibble for Sample 14, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 14}
+
+# 1. Repeat step #1 for sample 14, changing TH_id
+nof1_down_data_14 <- read_tsv("Sample 8-9, 12-15 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5185_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_14 <- file.path(getwd(), "TH50_5185_S01.4.0.json")
+
+json_data4.0_14 <- fromJSON(json_file4.0_14)
+
+down_outlier_expression_df_14 <- tibble(gene=names(json_data4.0_14$outlier_results$sample), expression=unlist(json_data4.0_14$outlier_results$sample))
+
+print(down_outlier_expression_df_14)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_14 <- inner_join(nof1_down_data_14, down_outlier_expression_df_14, by = "gene")
+
+# 4. Select columns 
+down_final_data_14 <- down_merged_data_14 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_14)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_14 <- inner_join(down_final_data_14, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_14) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_14, "Sample-14-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+## Create Down Outlier Gene tibble for Sample 15, including gene and expression level (4.0json), and merge with tibble of extracted outliers (nof1disease) from 4.0json
+```{r input down gene data sample 15}
+
+# 1. Repeat step #1 for sample 15, changing TH_id
+nof1_down_data_15 <- read_tsv("Sample 8-9, 12-15 nof1 Outlier Results.tsv", show_col_types = FALSE) %>%
+  filter(direction == "down") %>%
+  filter(TH_id == "TH50_5186_S01") %>% 
+  filter(!grepl("^RP", gene))
+  
+# Add expression levels from outlier_results$sample (lets call, data set B)
+# 2. Repeat step 2, changing TH_id
+json_file4.0_15 <- file.path(getwd(), "TH50_5186_S01.4.0.json")
+
+json_data4.0_15 <- fromJSON(json_file4.0_15)
+
+down_outlier_expression_df_15 <- tibble(gene=names(json_data4.0_15$outlier_results$sample), expression=unlist(json_data4.0_15$outlier_results$sample))
+
+print(down_outlier_expression_df_15)
+
+# 3. Merge the two datasets (inner_join for overlapping genes) (A+B)
+down_merged_data_15 <- inner_join(nof1_down_data_15, down_outlier_expression_df_15, by = "gene")
+
+# 4. Select columns 
+down_final_data_15 <- down_merged_data_15 %>%
+  select(gene, direction, expression)
+
+print(down_final_data_15)
+
+# 5. Merge the threshold data with the expression data
+down_final_merged_data_15 <- inner_join(down_final_data_15, threshold_down_outlier_genes_df, by = "gene") %>%
+  select(gene, expression, threshold, direction)
+
+# Style kable table 
+kable(down_final_merged_data_15) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(down_final_merged_data_15, "Sample-15-Down-Outliers-RP-Filtered.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+
+```
+
+
+## Samples 1-6, 8-9, 12-15 COMPLETE Down Outliers 
+```{r add count}
+
+# Add TH_id and Fay_id colums to each of 6 sample df's to keep track when merging
+down_final_merged_data_1 <- down_final_merged_data_1 %>% mutate(TH_id = "TH50_5178_S01", Fay_id = "Sample 1")
+down_final_merged_data_2 <- down_final_merged_data_2 %>% mutate(TH_id = "TH50_5179_S01", Fay_id = "Sample 2")
+down_final_merged_data_3 <- down_final_merged_data_3 %>% mutate(TH_id = "TH50_5280_S01", Fay_id = "Sample 3")
+down_final_merged_data_4 <- down_final_merged_data_4 %>% mutate(TH_id = "TH50_5281_S01", Fay_id = "Sample 4")
+down_final_merged_data_5 <- down_final_merged_data_5 %>% mutate(TH_id = "TH50_5282_S01", Fay_id = "Sample 5")
+down_final_merged_data_6 <- down_final_merged_data_6 %>% mutate(TH_id = "TH50_5283_S01", Fay_id = "Sample 6")
+down_final_merged_data_8 <- down_final_merged_data_8 %>% mutate(TH_id = "TH50_5181_S01", Fay_id = "Sample 8")
+down_final_merged_data_9 <- down_final_merged_data_9 %>% mutate(TH_id = "TH50_5182_S01", Fay_id = "Sample 9")
+down_final_merged_data_12 <- down_final_merged_data_12 %>% mutate(TH_id = "TH50_5183_S01", Fay_id = "Sample 12")
+down_final_merged_data_13 <- down_final_merged_data_13 %>% mutate(TH_id = "TH50_5184_S01", Fay_id = "Sample 13")
+down_final_merged_data_14 <- down_final_merged_data_14 %>% mutate(TH_id = "TH50_5185_S01", Fay_id = "Sample 14")
+down_final_merged_data_15 <- down_final_merged_data_15 %>% mutate(TH_id = "TH50_5186_S01", Fay_id = "Sample 15")
+
+# Combine all 6 samples expression data
+all_down_final_merged_data <- bind_rows(
+  down_final_merged_data_1,
+  down_final_merged_data_2,
+  down_final_merged_data_3,
+  down_final_merged_data_4,
+  down_final_merged_data_5,
+  down_final_merged_data_6,
+  down_final_merged_data_8,
+  down_final_merged_data_9,
+  down_final_merged_data_12,
+  down_final_merged_data_13,
+  down_final_merged_data_14,
+  down_final_merged_data_15
+  )
+
+# Calculate gene count/presence across sample cohort 
+down_gene_counts <- all_down_final_merged_data %>%
+  group_by(gene) %>%
+  summarize(count = n(), .groups = "drop")
+
+# Add counts to combined data
+final_down_data_with_counts <- left_join(all_down_final_merged_data, gene_counts, by = "gene")
+
+# Style kable table 
+kable(final_down_data_with_counts) %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"), full_width = FALSE) %>%
+  scroll_box(width = "100%", height = "500px")
+
+# Export as TSV
+write.table(final_down_data_with_counts, "Samples-1-to-6-8-9-12-to-15-Down-Outliers.tsv", sep = "\t", row.names = FALSE, quote = FALSE)
+```
+
