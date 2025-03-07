@@ -1,0 +1,40 @@
+---
+title: "`r gsub('.Rmd', ' ', gsub('_', ' ', knitr::current_input()))`"
+author: "`r Sys.getenv('USER')`"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  html_document:
+    toc: yes
+---
+  
+
+
+```{r}
+
+library(tidyverse)
+library(ggforce)
+```
+
+```{r}
+
+gtex_expr_skeletal_muscle <- read_tsv("~/downloads/gtex_expr_skeletal_muscle.tsv.gz")
+
+```
+
+
+```{r}
+genes_of_interest <- "HOXC10, HOXC9, HOXC8, HOXC-AS1, HOXC6, HOXC4, HOXC-AS2" %>% str_split(",") %>% unlist %>% str_trim
+```
+
+
+
+```{r}
+gtex_expr_skeletal_muscle_in_genes_of_interest <- gtex_expr_skeletal_muscle %>%
+  filter(Gene %in% genes_of_interest)
+
+ggplot(gtex_expr_skeletal_muscle_in_genes_of_interest) +
+  geom_histogram(aes(x = log2TPM1)) +
+  facet_col(~Gene)
+
+```
+
