@@ -1,0 +1,206 @@
+---
+title: "Sample-1-6-PCA-Plot"
+author: "Kaylee Delgado"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+library(dplyr)
+library(readr)
+library(tidyr)
+library(tidyverse)
+library(stringr)
+library(conflicted)
+library(kableExtra)
+library(jsonlite)
+library(knitr)
+
+```
+
+# Expression Data for Sample 1-6
+```{r pull expression data}
+
+# Define 4.0.json files (there will be 12) 
+json_files4.0 <- list.files(path = getwd(), pattern = "4\\.0\\.json$", full.names = TRUE)
+
+# Define the 6 specific file paths I want to select
+desired_files <- c(
+  "/Users/kayleedelgado/Desktop/Vaske Lab:Treehouse/Dry Lab/thops549-muscle-vs-gtex-2024sept3-NEW/TH50_5178_S01/TH50_5178_S01.4.0.json",
+  "/Users/kayleedelgado/Desktop/Vaske Lab:Treehouse/Dry Lab/thops549-muscle-vs-gtex-2024sept3-NEW/TH50_5178_S01/TH50_5179_S01.4.0.json",
+  "/Users/kayleedelgado/Desktop/Vaske Lab:Treehouse/Dry Lab/thops549-muscle-vs-gtex-2024sept3-NEW/TH50_5178_S01/TH50_5280_S01.4.0.json",
+  "/Users/kayleedelgado/Desktop/Vaske Lab:Treehouse/Dry Lab/thops549-muscle-vs-gtex-2024sept3-NEW/TH50_5178_S01/TH50_5281_S01.4.0.json",
+  "/Users/kayleedelgado/Desktop/Vaske Lab:Treehouse/Dry Lab/thops549-muscle-vs-gtex-2024sept3-NEW/TH50_5178_S01/TH50_5282_S01.4.0.json",
+  "/Users/kayleedelgado/Desktop/Vaske Lab:Treehouse/Dry Lab/thops549-muscle-vs-gtex-2024sept3-NEW/TH50_5178_S01/TH50_5283_S01.4.0.json"
+)
+
+# Filter the json_files4.0 to include only the desired files
+selected_files <- json_files4.0[json_files4.0 %in% desired_files]
+
+# Create empty list to store the data frames
+data_list <- list()
+
+# Loop through the selected files
+for (file_path in selected_files) {
+  tryCatch({
+    # Read the JSON data
+    json_data <- fromJSON(file_path)
+
+    # Extract the TH_id from the file path
+    TH_id <- gsub(".4.0.json", "", basename(file_path))
+
+    # Extract the outlier_results$sample data
+    expression_data <- json_data$outlier_results$sample
+
+    # Create a data frame
+    df <- data.frame(gene = names(expression_data), expression = unlist(expression_data))
+    colnames(df)[2] <- TH_id
+
+    # Store the data frame in the list
+    data_list[[TH_id]] <- df
+  }, error = function(e) {
+    print(paste("Error processing:", file_path, "-", e$message))
+  })
+}
+
+# Merge the data frames by gene name
+merged_data <- data_list[[1]]
+
+if(length(data_list)>1){
+  for (i in 2:length(data_list)) {
+    merged_data <- merge(merged_data, data_list[[i]], by = "gene", all = TRUE)
+  }
+}
+
+# Remove the extra "expression" column that was created in the merge.
+if(length(data_list)>1){
+  merged_data <- merged_data[, !names(merged_data) %in% "expression"]
+}
+
+# Print the merged data frame
+print(merged_data)
+
+```
+
+# PCA Data
+```{r perform PCA}
+
+# Prepare data for PCA
+pca_data <- merged_data %>%
+  column_to_rownames("gene") %>% # Set genes as row names
+  t() # Transpose data so samples are rows, genes are columns
+
+# Convert all columns to numeric
+pca_data <- as.data.frame(apply(pca_data, 2, as.numeric))
+
+# Check for remaining NAs
+if (any(is.na(pca_data))) {
+  print("Warning: NA values found in pca_data. Handling NAs.")
+  pca_data <- na.omit(pca_data) # Remove rows with NAs
+}
+
+# Identify constant/zero columns
+constant_cols <- apply(pca_data, 2, function(x) length(unique(x)) == 1)
+constant_cols_names <- names(pca_data)[constant_cols]
+print(paste("Constant columns:", paste(constant_cols_names, collapse = ", ")))
+
+# Remove constant/zero columns
+if (length(constant_cols_names) > 0) {
+  pca_data <- pca_data[, !constant_cols]
+  print("Constant columns removed.")
+}
+
+# Perform PCA
+pca_result <- prcomp(pca_data, scale. = TRUE)
+
+print(pca_result)
+
+```
+
+# Eigenvalues
+```{r eigenvalues}
+
+pc_eigenvalues <- pca_result$sdev^2
+
+pc_eigenvalues <- tibble(PC = factor(1:length(pc_eigenvalues)), 
+                         variance = pc_eigenvalues) %>% 
+  # add a new column with the percent variance
+  mutate(pct = variance/sum(variance)*100) %>% 
+  # add another column with the cumulative variance explained
+  mutate(pct_cum = cumsum(pct))
+
+# print the result
+print(pc_eigenvalues)
+
+```
+
+# PC Scores
+```{r PC scores}
+
+# pc scores
+pc_scores <- pca_result$x
+# convert to a tibble retaining the sample names as a new column
+pc_scores <- pc_scores %>%
+  as_tibble(rownames = "sample")
+# print the result
+print(pc_scores)
+
+```
+
+# PCA Plot
+```{r}
+
+# Create PCA plot using ggplot2
+pca_df <- as.data.frame(pca_result$x)
+pca_plot <- ggplot(pca_df, aes(x = PC1, y = PC2, color = rownames(pca_df))) + # Add color aesthetic
+  geom_point(size = 3) +
+  geom_text(aes(label = rownames(pca_df)), vjust = -0.5, hjust = 0.5) +
+  labs(title = "PCA Plot of Sample 1-6 NMD Expression Data",
+       x = paste0("Principal Component 1 (", round(summary(pca_result)$importance[2, 1] * 100, 2), "%)"),
+       y = paste0("Principal Component 2 (", round(summary(pca_result)$importance[2, 2] * 100, 2), "%)")) +
+  theme_minimal() +
+  coord_cartesian(ylim = range(pca_df$PC2) * 1.2) + # Adjust y-axis limits
+  scale_color_discrete(name = "Sample") # Add a legend title
+
+print(pca_plot)
+
+# Save the plot as a JPG file
+ggsave("sample-1-to-6-pca-plot.jpg", pca_plot, width = 8, height = 6, units = "in", dpi = 300)
+
+```
+
+# Examine PCs
+```{r examine pc loadings}
+
+# Examine PC1 Loadings
+pc1_loadings <- pca_result$rotation[, "PC1"]
+pc1_loadings_sorted <- sort(pc1_loadings, decreasing = TRUE)
+
+# Top 20 PC1 Genes and Loadings
+top_genes_pc1 <- head(pc1_loadings_sorted, 20)
+top_pc1_tibble <- tibble(
+  gene = names(top_genes_pc1),
+  loading_PC1 = as.numeric(top_genes_pc1)
+)
+
+print("Top 20 Genes Contributing to PC1:")
+print(top_pc1_tibble)
+
+# Examine PC2 Loadings
+pc2_loadings <- pca_result$rotation[, "PC2"]
+pc2_loadings_sorted <- sort(pc2_loadings, decreasing = TRUE)
+
+# Top 20 PC2 Genes and Loadings
+top_genes_pc2 <- head(pc2_loadings_sorted, 20)
+top_pc2_tibble <- tibble(
+  gene = names(top_genes_pc2),
+  loading_PC2 = as.numeric(top_genes_pc2)
+)
+
+print("Top 20 Genes Contributing to PC2:")
+print(top_pc2_tibble)
+
+```
