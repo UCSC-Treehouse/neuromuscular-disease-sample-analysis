@@ -1,0 +1,226 @@
+---
+title: "Sample-1-6-8-9-12-15-PCA-Plot"
+author: "Kaylee Delgado"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup}
+
+knitr::opts_chunk$set(echo = FALSE)
+
+library(dplyr)
+library(readr)
+library(tidyr)
+library(tidyverse)
+library(stringr)
+library(conflicted)
+library(kableExtra)
+library(jsonlite)
+library(knitr)
+library(tibble)
+library(ggrepel)
+
+```
+
+# Add Fay id to TH id
+```{r map TH id to Fay id}
+
+# TH_id to Fay_id mapping
+th_fay_mapping <- c(
+  "TH50_5178_S01, Sample 1",
+  "TH50_5179_S01, Sample 2",
+  "TH50_5280_S01, Sample 3",
+  "TH50_5281_S01, Sample 4",
+  "TH50_5282_S01, Sample 5",
+  "TH50_5283_S01, Sample 6",
+  "TH50_5181_S01, Sample 8",
+  "TH50_5182_S01, Sample 9",
+  "TH50_5183_S01, Sample 12",
+  "TH50_5184_S01, Sample 13",
+  "TH50_5185_S01, Sample 14",
+  "TH50_5186_S01, Sample 15"
+)
+
+# Extract TH_id and Fay_id
+th_fay_split <- strsplit(th_fay_mapping, ", ")
+th_ids <- sapply(th_fay_split, `[`, 1)
+fay_ids <- sapply(th_fay_split, `[`, 2)
+
+# Create a named vector for easy lookup
+th_to_fay <- setNames(fay_ids, th_ids)
+
+```
+
+
+# Expression Data for Sample 1-6, 8-9, 12-15
+```{r pull expression data}
+
+# Define 4.0.json files (there will be 12) 
+json_files4.0 <- list.files(path = getwd(), pattern = "4\\.0\\.json$", full.names = TRUE)
+
+# Create empty list to store the data frames
+data_list <- list()
+
+# Loop through the files
+for (file_path in json_files4.0) {
+  tryCatch({
+    # Read the JSON data
+    json_data <- fromJSON(file_path)
+
+    # Extract the TH_id from the file path
+    TH_id <- gsub(".4.0.json", "", basename(file_path))
+    
+    #Get the fay_id
+    Fay_id = th_to_fay[TH_id]
+
+    # Extract the outlier_results$sample data
+    expression_data <- json_data$outlier_results$sample
+
+    # Create a data frame
+    df <- data.frame(gene = names(expression_data), expression = unlist(expression_data))
+    
+    #Create the new column name
+    new_col_name = paste(TH_id, ",", Fay_id)
+    
+    colnames(df)[2] <- new_col_name
+
+    # Store the data frame in the list
+    data_list[[new_col_name]] <- df
+  }, error = function(e) {
+    print(paste("Error processing:", file_path, "-", e$message))
+  })
+}
+
+# Merge the data frames by gene name
+merged_data2 <- data_list[[1]]
+
+if(length(data_list)>1){
+  for (i in 2:length(data_list)) {
+    merged_data2 <- merge(merged_data2, data_list[[i]], by = "gene", all = TRUE)
+  }
+}
+
+# Remove the extra "expression" column that was created in the merge.
+if(length(data_list)>1){
+  merged_data2 <- merged_data2[, !names(merged_data2) %in% "expression"]
+}
+
+# Print the merged data frame
+print(merged_data2)
+
+```
+
+
+# PCA Data
+```{r perform PCA}
+
+# Prepare data for PCA
+pca_data2 <- merged_data2 %>%
+  column_to_rownames("gene") %>% # Set genes as row names
+  t() # Transpose data so samples are rows, genes are columns
+
+# Convert all columns to numeric
+pca_data2 <- as.data.frame(apply(pca_data2, 2, as.numeric))
+
+# Check for remaining NAs
+if (any(is.na(pca_data2))) {
+  print("Warning: NA values found in pca_data2. Handling NAs.")
+  pca_data2 <- na.omit(pca_data2) # Remove rows with NAs
+}
+
+# Identify constant/zero columns
+constant_cols2 <- apply(pca_data2, 2, function(x) length(unique(x)) == 1)
+constant_cols_names2 <- names(pca_data2)[constant_cols2]
+print(paste("Constant columns:", paste(constant_cols_names2, collapse = ", ")))
+
+# Remove constant/zero columns
+if (length(constant_cols_names2) > 0) {
+  pca_data2 <- pca_data2[, !constant_cols2]
+  print("Constant columns removed.")
+}
+
+# Perform PCA
+pca_result2 <- prcomp(pca_data2, scale. = TRUE)
+
+print(pca_result2)
+
+```
+
+# Eigenvalues
+```{r eigenvalues}
+
+pc_eigenvalues <- pca_result$sdev^2
+
+pc_eigenvalues <- tibble(PC = factor(1:length(pc_eigenvalues)), 
+                         variance = pc_eigenvalues) %>% 
+  # add a new column with the percent variance
+  mutate(pct = variance/sum(variance)*100) %>% 
+  # add another column with the cumulative variance explained
+  mutate(pct_cum = cumsum(pct))
+
+# print the result
+print(pc_eigenvalues)
+
+```
+
+
+# PC Scores
+```{r PC scores}
+
+# Ensure gene column is removed, and data is transposed
+pca_input2 <- merged_data2[, -1] # Remove gene column
+pca_input2 <- t(pca_input2) # Transpose so samples are rows
+
+# Convert to numeric (if needed)
+if (!is.numeric(pca_input2)) {
+  pca_input2 <- apply(pca_input2, 2, as.numeric)
+}
+
+zero_var_cols2 <- apply(pca_input2, 2, var, na.rm = TRUE) == 0
+if (any(zero_var_cols2)) {
+  print("Warning: Constant/zero variance columns found:")
+  print(colnames(pca_input2)[zero_var_cols2])
+  # Remove the constant/zero variance columns
+  pca_input2 <- pca_input2[, !zero_var_cols2]
+}
+
+# Perform PCA
+pca_result2 <- prcomp(pca_input2, scale. = TRUE) # scale important for rna seq data
+
+# pc scores
+pc_scores2 <- pca_result2$x
+
+# Convert to a tibble, retaining the sample names as a new column
+pc_scores2 <- as_tibble(pc_scores2, rownames = "sample")
+
+# Print the result
+print(pc_scores2)
+
+# HOW TO GET 'SAMPLE' COLUMN TO CORRECT SAMPLE # / FAY ID???
+
+```
+
+
+# PCA Plot
+```{r}
+
+# Create PCA plot using ggplot2
+pca_df2 <- as.data.frame(pca_result2$x)
+pca_plot2 <- ggplot(pca_df2, aes(x = PC1, y = PC2, color = rownames(pca_df2))) +
+  geom_point(size = 2) + # Reduced point size
+  geom_text(aes(label = rownames(pca_df2)), size = 3, vjust = 1.7, hjust = -0.6) + # Adjusted vjust and hjust
+  labs(title = "PCA Plot of Sample 1-6, 8-9, 12-15 NMD Expression Data",
+       x = paste0("Principal Component 1 (", round(summary(pca_result2)$importance[2, 1] * 100, 2), "%)"),
+       y = paste0("Principal Component 2 (", round(summary(pca_result2)$importance[2, 2] * 100, 2), "%)")) +
+  theme_minimal() +
+  coord_cartesian(ylim = range(pca_df2$PC2) * 1.2) +
+  scale_color_discrete(name = "Sample")
+
+print(pca_plot2)
+
+# Save the plot as a JPG file
+ggsave("sample-1-to-6-8-9-12-to-15-pca-plot.jpg", pca_plot2, width = 8, height = 6, units = "in", dpi = 300)
+
+```
+
